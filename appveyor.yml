@@ -1,0 +1,107 @@
+version: '1.0.{build}'
+
+image:
+  - Visual Studio 2019
+
+branches:
+  only:
+    - develop
+
+# set clone depth
+clone_depth: 1
+
+platform:
+  - x64
+
+configuration:
+  - Debug
+  - Release
+
+matrix:
+  fast_finish: true
+
+install:
+  - ps: |
+      $CLONE_URL = git remote get-url origin
+      $BRANCH = $env:APPVEYOR_REPO_BRANCH
+      cd .. 2> $null
+      if ( "$env:APPVEYOR_PULL_REQUEST_NUMBER" -eq "" )
+      {
+          echo ("Branch <"+"$BRANCH"+"> will be cloned") 2> $null
+          git clone -b $BRANCH --single-branch $CLONE_URL 2> $null
+          cd "$env:APPVEYOR_BUILD_FOLDER" 2> $null
+      }
+      else
+      {
+          git clone $CLONE_URL 2> $null
+          cd "$env:APPVEYOR_BUILD_FOLDER" 2> $null
+          $BRANCH=("pr"+"$env:APPVEYOR_PULL_REQUEST_NUMBER")
+          echo ("Pull request branch <"+"$BRANCH"+"> will be checked out") 2> $null
+          $REMOTETOLOCAL = ("pull/"+"$env:APPVEYOR_PULL_REQUEST_NUMBER"+"/head:"+"$BRANCH")
+          echo ("REMOTETOLOCAL: "+"$REMOTETOLOCAL") 2> $null
+          git fetch origin "$REMOTETOLOCAL" 2> $null
+      }
+  - ps: |
+      $CUR_BRANCH_NAME = git branch --show-current
+      echo ("Current branch: "+"$CUR_BRANCH_NAME") 2> $null
+      $CUR_SHA1 = git rev-parse HEAD
+      echo ("Current commit: "+"$CUR_SHA1") 2> $null
+      if ( "$env:CONFIGURATION" -eq "Debug")
+      {
+          if ( "$env:APPVEYOR_PULL_REQUEST_NUMBER" -eq "" )
+          {
+              $MSG=@"
+              <li><b>Build branch:</b> $env:APPVEYOR_REPO_BRANCH<br><li>
+              <li><b>Commit author:</b> $env:APPVEYOR_REPO_COMMIT_AUTHOR<br></li>
+              <li><b>Commit SHA1:</b> $CUR_SHA1<li>
+      "@
+              Add-AppveyorMessage "$MSG"
+          }
+          else
+          {
+              $MSG=@"
+              <li><b>Build pull request:</b> $env:APPVEYOR_PULL_REQUEST_NUMBER ("$env:APPVEYOR_PULL_REQUEST_HEAD_REPO_BRANCH" -&gt; "$env:APPVEYOR_REPO_BRANCH")<br></li>
+              <li><b>Commit author:</b> $env:APPVEYOR_REPO_COMMIT_AUTHOR<br></li>
+              <li><b>Commit SHA1 of $env:APPVEYOR_PULL_REQUEST_HEAD_REPO_BRANCH head:</b> $CUR_SHA1<br></li>
+      "@
+              Add-AppveyorMessage "$MSG"
+          }
+      }
+
+before_build:
+  - cmake --version
+  - C:\Tools\vcpkg\vcpkg.exe integrate remove
+  - echo %PATH%
+  - cmake -E make_directory build
+  - cd build
+  - cmake -G "Visual Studio 16 2019" -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/clang-cl.cmake ..
+  # - ps: |
+  #     clang-cl /?
+
+build_script:
+  - cmake --build . --config %CONFIGURATION%
+
+test_script:
+  - ctest -I ,,1 -C %CONFIGURATION% --output-on-failure
+
+# on_finish:
+#   - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+
+notifications:
+  - provider: Email
+    to:
+      - rokoDev@yandex.ru
+    subject: 'Build {{status}}'
+    message:
+      <ul>
+      {{#jobs}}
+        {{{messages.0.message}}}
+      {{/jobs}}
+      <li><b>Build version:</b> <code>{{buildVersion}}</code></li>
+      <li><b>Build status:</b> <code>{{status}}</code></li>
+      <li><b>Commit message:</b> <code>{{commitMessage}}</code></li>
+      <li><a href="{{buildUrl}}">Build url</a></li>
+      </ul>
+    on_build_success: true #|false
+    on_build_failure: true #|false
+    on_build_status_changed: true #|false

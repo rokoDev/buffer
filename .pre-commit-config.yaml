@@ -1,0 +1,31 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+    -   id: pretty-format-json
+        args: ["--autofix", "--no-sort-keys"]
+-   repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: '538e427732ae3849c4da3bfb96b808d9b94e90e4'
+    hooks:
+    -   id: clang-format
+        types_or: [c++, c]
+-   repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.14.3
+    hooks:
+    -   id: check-jsonschema
+        name: "Check CMakePresets.json and CMakeUserPresets.json"
+        files: ^(CMakePresets.json|CMakeUserPresets.json)$
+        types: [json]
+        args: ["--schemafile", "https://cmake.org/cmake/help/latest/_downloads/3e2d73bff478d88a7de0de736ba5e361/schema.json"]
+-   repo: https://github.com/avilaton/add-msg-issue-prefix-hook
+    rev: '051878d615b7862ef7a5eaeece6ffdcbba8648dc'
+    hooks:
+    -   id: add-msg-issue-prefix
+        args:
+            - --template={}

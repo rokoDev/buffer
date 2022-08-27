@@ -1,0 +1,116 @@
+version: 2.1
+
+commands:
+  clone_branch_or_pr:
+    description: "Checkout source code from corresponding pull request or branch. Submodules are not taken into account."
+    parameters:
+      container_name:
+        type: string
+    steps:
+      - run:
+          name: "checkout sources"
+          command: |
+            CLONE_URL="https://github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
+            echo "CLONE_URL: ${CLONE_URL}"
+            if [ -n "$CIRCLE_PULL_REQUEST" ]; then
+              PR_NUMBER=$(basename ${CIRCLE_PULL_REQUEST})
+            else
+              PR_NUMBER="nopr"
+            fi
+            if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" -eq "$PR_NUMBER" ] 2>/dev/null; then
+              echo "This is pull request: ${PR_NUMBER}"
+              docker exec -it <<parameters.container_name>> bash -c "git clone ${CLONE_URL} \
+              && cd ${CIRCLE_PROJECT_REPONAME} \
+              && BRANCH=pr${PR_NUMBER} \
+              && git fetch origin \"pull/${PR_NUMBER}/head:${BRANCH}\""
+            else
+              echo "This is simple branch: ${CIRCLE_BRANCH}"
+              docker exec -it <<parameters.container_name>> bash -c "git clone -b ${CIRCLE_BRANCH} --single-branch ${CLONE_URL}"
+            fi
+
+jobs:
+  ubuntu_x86_64:
+    machine:
+      image: ubuntu-2004:202201-01
+    resource_class: large
+    steps:
+      - run: printenv
+      - run:
+          name: Login to Dockerhub
+          command: |
+            echo "$DOCKERHUB_PULL_TOKEN" | docker login --username $DOCKERHUB_LOGIN --password-stdin
+      - run:
+          name: Run docker container for amd64
+          command: docker run -it -d --platform linux/amd64 --name ubuntu_x86 rokodev/ubuntu2004-dev:1.1
+      - clone_branch_or_pr:
+          container_name: ubuntu_x86
+      - run:
+          name: Configure, build and test ninja-clang-Debug
+          command: |
+            SRC_DIR="/home/projects/${CIRCLE_PROJECT_REPONAME}"
+            BUILD_DIR="${SRC_DIR}/build/Ninja/clang/Debug"
+            docker exec -it ubuntu_x86 bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/clang.cmake -DCMAKE_BUILD_TYPE=\"Debug\" -S $SRC_DIR -B $BUILD_DIR"
+            docker exec -it ubuntu_x86 bash -c "cd $BUILD_DIR; cmake --build . --config Debug"
+            docker exec -it ubuntu_x86 bash -c "cd $BUILD_DIR; ctest -I ,,1 -C Debug --output-on-failure"
+      - run:
+          name: Configure, build and test ninja-clang-Release
+          command: |
+            SRC_DIR="/home/projects/${CIRCLE_PROJECT_REPONAME}"
+            BUILD_DIR="${SRC_DIR}/build/Ninja/clang/Release"
+            docker exec -it ubuntu_x86 bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/clang.cmake -DCMAKE_BUILD_TYPE=\"Release\" -S $SRC_DIR -B $BUILD_DIR"
+            docker exec -it ubuntu_x86 bash -c "cd $BUILD_DIR; cmake --build . --config Release"
+            docker exec -it ubuntu_x86 bash -c "cd $BUILD_DIR; ctest -I ,,1 -C Release --output-on-failure"
+  ubuntu_s390x:
+    machine:
+      image: ubuntu-2004:202201-01
+    resource_class: large
+    environment:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - run: printenv
+      - run:
+          name: Login to Dockerhub
+          command: |
+            echo "$DOCKERHUB_PULL_TOKEN" | docker login --username $DOCKERHUB_LOGIN --password-stdin
+      - run:
+          name: Enable run containers with different architectures
+          command: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - run:
+          name: Run docker container for s390x
+          command: docker run -it -d --platform linux/s390x --name ubuntu_z rokodev/ubuntu2204-dev:1.0
+      - clone_branch_or_pr:
+          container_name: ubuntu_z
+      - run:
+          name: Configure, build and test ninja-gnu-Debug
+          command: |
+            SRC_DIR="/home/projects/${CIRCLE_PROJECT_REPONAME}"
+            BUILD_DIR="${SRC_DIR}/build/Ninja/gnu/Debug"
+            docker exec -it ubuntu_z bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/gnu.cmake -DCMAKE_BUILD_TYPE=\"Debug\" -S ${SRC_DIR} -B ${BUILD_DIR}"
+            docker exec -it ubuntu_z bash -c "cd $BUILD_DIR; cmake --build . --config Debug"
+            docker exec -it ubuntu_z bash -c "cd $BUILD_DIR; ctest -I ,,1 -C Debug --output-on-failure"
+      - run:
+          name: Configure, build and test ninja-gnu-Release
+          command: |
+            SRC_DIR="/home/projects/${CIRCLE_PROJECT_REPONAME}"
+            BUILD_DIR="${SRC_DIR}/build/Ninja/gnu/Release"
+            docker exec -it ubuntu_z bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/gnu.cmake -DCMAKE_BUILD_TYPE=\"Release\" -S ${SRC_DIR} -B ${BUILD_DIR}"
+            docker exec -it ubuntu_z bash -c "cd $BUILD_DIR; cmake --build . --config Release"
+            docker exec -it ubuntu_z bash -c "cd $BUILD_DIR; ctest -I ,,1 -C Release --output-on-failure"
+
+workflows:
+  build_and_test:
+    jobs:
+      - ubuntu_x86_64:
+          context:
+            - roko
+          filters:
+            branches:
+              only:
+                - develop
+      # - ubuntu_s390x:
+      #     context:
+      #       - roko
+      #     filters:
+      #       branches:
+      #         only:
+      #           - develop

@@ -1,0 +1,187 @@
+{
+  "version": 4,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 1
+  },
+  "configurePresets": [
+    {
+      "name": "clang-base",
+      "hidden": true,
+      "toolchainFile": "${sourceDir}/deps_content/cmake-toolchains/clang.cmake"
+    },
+    {
+      "name": "vs-clang",
+      "displayName": "Configuration for Visual Studio 16 2019 with ClangCL toolset",
+      "description": "Configuration which uses Clang compiler and multi-config project generator Visual Studio 16 2019",
+      "generator": "Visual Studio 16 2019",
+      "binaryDir": "${sourceDir}/build/vs/clang-cl",
+      "toolchainFile": "${sourceDir}/deps_content/cmake-toolchains/clang-cl.cmake",
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "intelliSenseMode": "windows-clang-x64"
+        }
+      },
+      "condition": {
+        "type": "allOf",
+        "conditions": [
+          {
+            "type": "equals",
+            "lhs": "${hostSystemName}",
+            "rhs": "Windows"
+          },
+          {
+            "type": "equals",
+            "lhs": "${generator}",
+            "rhs": "Visual Studio 16 2019"
+          }
+        ]
+      }
+    },
+    {
+      "name": "xcode",
+      "inherits": "clang-base",
+      "displayName": "Default Xcode Config",
+      "description": "Default build using Xcode generator",
+      "generator": "Xcode",
+      "binaryDir": "${sourceDir}/build/Xcode",
+      "condition": {
+        "type": "allOf",
+        "conditions": [
+          {
+            "type": "equals",
+            "lhs": "${hostSystemName}",
+            "rhs": "Darwin"
+          },
+          {
+            "type": "equals",
+            "lhs": "${generator}",
+            "rhs": "Xcode"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ninja-clang-base",
+      "hidden": true,
+      "inherits": "clang-base",
+      "generator": "Ninja",
+      "condition": {
+        "type": "allOf",
+        "conditions": [
+          {
+            "type": "equals",
+            "lhs": "${generator}",
+            "rhs": "Ninja"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ninja-clang-Debug",
+      "inherits": "ninja-clang-base",
+      "displayName": "Debug configuration for Ninja with Clang",
+      "description": "Debug configuration which uses Clang and single configuration project generator Ninja",
+      "binaryDir": "${sourceDir}/build/Ninja/Debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "ninja-clang-Release",
+      "inherits": "ninja-clang-base",
+      "displayName": "Release configuration for Ninja with Clang",
+      "description": "Release configuration which uses Clang and single configuration project generator Ninja",
+      "binaryDir": "${sourceDir}/build/Ninja/Release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "xcode-Debug",
+      "configurePreset": "xcode",
+      "configuration": "Debug"
+    },
+    {
+      "name": "xcode-Release",
+      "configurePreset": "xcode",
+      "configuration": "Release"
+    },
+    {
+      "name": "ninja-clang-Debug",
+      "configurePreset": "ninja-clang-Debug"
+    },
+    {
+      "name": "ninja-clang-Release",
+      "configurePreset": "ninja-clang-Release"
+    },
+    {
+      "name": "vs-clang-Debug",
+      "configurePreset": "vs-clang",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs-clang-Release",
+      "configurePreset": "vs-clang",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test-base",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error",
+        "stopOnFailure": true
+      }
+    },
+    {
+      "name": "xcode-test-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "xcode"
+    },
+    {
+      "name": "xcode-Debug",
+      "inherits": "xcode-test-base",
+      "configuration": "Debug"
+    },
+    {
+      "name": "xcode-Release",
+      "inherits": "xcode-test-base",
+      "configuration": "Release"
+    },
+    {
+      "name": "ninja-clang-Debug",
+      "inherits": "test-base",
+      "configurePreset": "ninja-clang-Debug"
+    },
+    {
+      "name": "ninja-clang-Release",
+      "inherits": "test-base",
+      "configurePreset": "ninja-clang-Release"
+    },
+    {
+      "name": "vs-clang-test-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "vs-clang"
+    },
+    {
+      "name": "vs-clang-Debug",
+      "inherits": "vs-clang-test-base",
+      "configuration": "Debug"
+    },
+    {
+      "name": "vs-clang-Release",
+      "inherits": "vs-clang-test-base",
+      "configuration": "Release"
+    }
+  ]
+}
