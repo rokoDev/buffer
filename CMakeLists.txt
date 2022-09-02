@@ -41,6 +41,9 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # Create library
 add_library(buffer INTERFACE)
 
+# Add dependencies
+add_subdirectory(deps)
+
 # Add sources, definitions, link dependencies, etc.
 add_subdirectory(sources)
 

@@ -107,10 +107,10 @@ workflows:
             branches:
               only:
                 - develop
-      # - ubuntu_s390x:
-      #     context:
-      #       - roko
-      #     filters:
-      #       branches:
-      #         only:
-      #           - develop
+      - ubuntu_s390x:
+          context:
+            - roko
+          filters:
+            branches:
+              only:
+                - develop
