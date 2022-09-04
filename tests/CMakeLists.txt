@@ -51,7 +51,8 @@ function(package_add_test)
   set(multiValues
     TEST_SOURCES
     EXTRA_TARGETS
-    )
+    DEFS
+  )
 
   cmake_parse_arguments(${prefix}
                         "${noValues}"
@@ -68,6 +69,10 @@ function(package_add_test)
   target_include_directories(${TEST_TARGET_NAME} PUBLIC include)
   foreach(target_to_link IN LISTS EXTRA_TARGETS)
       target_link_libraries(${TEST_TARGET_NAME} PUBLIC ${target_to_link})
+  endforeach()
+
+  foreach(define IN LISTS DEFS)
+      target_compile_definitions(${TEST_TARGET_NAME} PRIVATE ${define})
   endforeach()
   add_test(NAME ${TEST_TARGET_NAME} COMMAND ${TEST_TARGET_NAME})
 
@@ -95,6 +100,11 @@ package_add_test(
   TEST_TARGET_NAME buffer_tests
   TEST_SOURCES ${test_src}
   EXTRA_TARGETS tests_main buffer
+  DEFS BOOST_LEAF_NO_EXCEPTIONS=0
+       BOOST_LEAF_CFG_STD_SYSTEM_ERROR=0
+       BOOST_LEAF_CFG_STD_STRING=0
+       BOOST_LEAF_CFG_DIAGNOSTICS=0
+       BOOST_LEAF_CFG_GNUC_STMTEXPR=0
   )
 
 # If use IDE add gtest, gmock, gtest_main and gmock_main targets into deps/googletest group

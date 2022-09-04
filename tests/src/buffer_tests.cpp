@@ -112,7 +112,7 @@ struct source_location;
 
 #endif
 
-TEST(BufferViewConst, ConstructorTest1)
+TEST(BufferViewConst, ConstructorFromPointer)
 {
     using DataT = char;
     using BufDataT = char;
@@ -120,43 +120,6 @@ TEST(BufferViewConst, ConstructorTest1)
     std::array<DataT, kSize> array{};
     using Buf = buffer::buffer_view_const<BufDataT>;
     result<Buf> buf = buffer::make_bv_const(array.data(), array.size());
-    static_assert(type_name::type_name<Buf::value_type>() == "char"sv,
-                  "Invalid value_type.");
-    static_assert(type_name::type_name<Buf::pointer>() == "const char *"sv,
-                  "Invalid value_type.");
-    ASSERT_EQ(buf.value().size(), kSize);
-    ASSERT_EQ(buf.value().data(), array.data());
-}
-
-TEST(BufferViewConst, ConstructorTest2)
-{
-    using DataT = char;
-    using BufDataT = void;
-    constexpr std::size_t kSize = 10;
-    const std::array<DataT, kSize> array{};
-    using Buf = buffer::buffer_view_const<BufDataT>;
-    result<Buf> buf = buffer::make_bv_const(
-        static_cast<void const *>(array.data()), array.size());
-    static_assert(type_name::type_name<Buf::value_type>() == "void"sv,
-                  "Invalid value_type.");
-    static_assert(type_name::type_name<Buf::pointer>() == "const void *"sv,
-                  "Invalid value_type.");
-    ASSERT_EQ(buf.value().size(), kSize);
-    ASSERT_EQ(buf.value().data(), array.data());
-}
-
-TEST(BufferViewConst, ConstructorTest3)
-{
-    using DataT = int16_t;
-    using BufDataT = int16_t;
-    constexpr std::size_t kSize = 10;
-    const std::array<DataT, kSize> array{};
-    using Buf = buffer::buffer_view_const<BufDataT>;
-    result<Buf> buf = buffer::make_bv_const(array.data(), array.size());
-    static_assert(type_name::type_name<Buf::value_type>() == "short"sv,
-                  "Invalid value_type.");
-    static_assert(type_name::type_name<Buf::pointer>() == "const short *"sv,
-                  "Invalid value_type.");
     ASSERT_EQ(buf.value().size(), kSize);
     ASSERT_EQ(buf.value().data(), array.data());
 }
@@ -169,11 +132,6 @@ TEST(BufferViewConst, ConstructFromCArrayTest1)
     const DataT array[kSize]{};
     using Buf = buffer::buffer_view_const<BufDataT>;
     result<Buf> buf = buffer::make_bv_const(array);
-    static_assert(type_name::type_name<Buf::value_type>() == "unsigned char"sv,
-                  "Invalid value_type.");
-    static_assert(
-        type_name::type_name<Buf::pointer>() == "const unsigned char *"sv,
-        "Invalid value_type.");
     ASSERT_EQ(buf.value().size(), kSize);
     ASSERT_EQ(buf.value().data(), array);
 }
@@ -186,27 +144,18 @@ TEST(BufferViewConst, ConstructFromSTDArrayTest)
     const std::array<DataT, kSize> array{};
     using BufT = buffer::buffer_view_const<BufDataT>;
     result<BufT> buf = buffer::make_bv_const(array);
-    static_assert(type_name::type_name<BufT::value_type>() == "unsigned char"sv,
-                  "Invalid value_type.");
-    static_assert(
-        type_name::type_name<BufT::pointer>() == "const unsigned char *"sv,
-        "Invalid value_type.");
     ASSERT_EQ(buf.value().size(), kSize);
     ASSERT_EQ(buf.value().data(), array.data());
 }
 
-TEST(BufferView, ConstructorTest1)
+TEST(BufferView, ConstructFromPointer)
 {
-    using DataT = int16_t;
-    using BufDataT = int16_t;
+    using DataT = char;
+    using BufDataT = char;
     constexpr std::size_t kSize = 10;
-    std::array<DataT, kSize> array{};
-    using Buf = buffer::buffer_view<BufDataT>;
-    result<Buf> buf = buffer::make_bv(array.data(), array.size());
-    static_assert(type_name::type_name<Buf::value_type>() == "short"sv,
-                  "Invalid value_type.");
-    static_assert(type_name::type_name<Buf::pointer>() == "short *"sv,
-                  "Invalid value_type.");
+    const std::array<DataT, kSize> array{};
+    using Buf = buffer::buffer_view_const<BufDataT>;
+    result<Buf> buf = buffer::make_bv_const(array.data(), array.size());
     ASSERT_EQ(buf.value().size(), kSize);
     ASSERT_EQ(buf.value().data(), array.data());
 }
@@ -219,10 +168,6 @@ TEST(BufferView, ConstructFromCArrayTest1)
     DataT array[kSize]{};
     using Buf = buffer::buffer_view<BufDataT>;
     result<Buf> buf = buffer::make_bv(array);
-    static_assert(type_name::type_name<Buf::value_type>() == "unsigned char"sv,
-                  "Invalid value_type.");
-    static_assert(type_name::type_name<Buf::pointer>() == "unsigned char *"sv,
-                  "Invalid value_type.");
     ASSERT_EQ(buf.value().size(), kSize);
     ASSERT_EQ(buf.value().data(), array);
 }
@@ -235,10 +180,6 @@ TEST(BufferView, ConstructFromSTDArrayTest)
     std::array<DataT, kSize> array{};
     using BufT = buffer::buffer_view<BufDataT>;
     result<BufT> buf = buffer::make_bv(array);
-    static_assert(type_name::type_name<BufT::value_type>() == "unsigned char"sv,
-                  "Invalid value_type.");
-    static_assert(type_name::type_name<BufT::pointer>() == "unsigned char *"sv,
-                  "Invalid value_type.");
     ASSERT_EQ(buf.value().size(), kSize);
     ASSERT_EQ(buf.value().data(), array.data());
 }

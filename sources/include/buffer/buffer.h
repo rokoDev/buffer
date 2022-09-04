@@ -107,12 +107,8 @@ class buffer_view_base
     static result<buffer_view_base<T, isConst>> create(
         pointer aDataPtr, std::size_t aSize) noexcept
     {
-        auto r = validate_args(aDataPtr, aSize);
-        if (r)
-        {
-            return buffer_view_base<T, isConst>(aDataPtr, aSize);
-        }
-        return r.error();
+        BOOST_LEAF_CHECK(validate_args(aDataPtr, aSize));
+        return buffer_view_base<T, isConst>(aDataPtr, aSize);
     }
 
     ~buffer_view_base() = default;
@@ -148,15 +144,8 @@ class buffer_view_base
 
     inline result<value_type> operator[](std::size_t aIndex) const noexcept
     {
-        result<pointer> r = data(aIndex);
-        if (r)
-        {
-            return *(r.value());
-        }
-        else
-        {
-            return r.error();
-        }
+        BOOST_LEAF_AUTO(dataPtr, data(aIndex));
+        return *dataPtr;
     }
 
     inline constexpr pointer data() const noexcept { return data_; }
