@@ -84,6 +84,8 @@ build_script:
 test_script:
   - ctest -I ,,1 -C %CONFIGURATION% --output-on-failure
 
+# Uncomment these 2 lines to establish session via Microsoft Remote Desktop after build is finished
+# this is useful for example if you need to debug code to find why build is failed
 # on_finish:
 #   - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
