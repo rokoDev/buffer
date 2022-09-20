@@ -8,6 +8,7 @@
 using namespace std::literals::string_view_literals;
 
 namespace leaf = boost::leaf;
+using buf_error = buffer::error;
 
 template <class T>
 using result = leaf::result<T>;
@@ -71,20 +72,20 @@ int execute(CallableT &&aArg) noexcept
 {
     const auto r = leaf::try_handle_all(
         aArg,
-        [](leaf::match<buffer::error, buffer::error::null_data_and_zero_size>)
-        { return to_underlying(buffer::error::null_data_and_zero_size); },
-        [](leaf::match<buffer::error, buffer::error::null_data_pointer>)
-        { return to_underlying(buffer::error::null_data_pointer); },
-        [](leaf::match<buffer::error, buffer::error::zero_size>)
-        { return to_underlying(buffer::error::zero_size); },
-        [](leaf::match<buffer::error, buffer::error::invalid_index>)
-        { return to_underlying(buffer::error::invalid_index); },
+        [](leaf::match<buf_error, buf_error::null_data_and_zero_size>)
+        { return to_underlying(buf_error::null_data_and_zero_size); },
+        [](leaf::match<buf_error, buf_error::null_data>)
+        { return to_underlying(buf_error::null_data); },
+        [](leaf::match<buf_error, buf_error::zero_size>)
+        { return to_underlying(buf_error::zero_size); },
+        [](leaf::match<buf_error, buf_error::invalid_index>)
+        { return to_underlying(buf_error::invalid_index); },
         [](leaf::error_info const &unmatched)
         {
             std::cerr << "Unknown failure detected" << std::endl
                       << "Cryptic diagnostic information follows" << std::endl
                       << unmatched;
-            return to_underlying(buffer::error::unknown);
+            return to_underlying(buf_error::unknown);
         });
     return r;
 }
@@ -119,7 +120,8 @@ TEST(BufferViewConst, ConstructorFromPointer)
     constexpr std::size_t kSize = 10;
     std::array<DataT, kSize> array{};
     using Buf = buffer::buffer_view_const<BufDataT>;
-    result<Buf> buf = buffer::make_bv_const(array.data(), array.size());
+    result<Buf> buf =
+        buffer::make_bv_const(array.data(), buffer::NBytes(array.size()));
     ASSERT_EQ(buf.value().size(), kSize);
     ASSERT_EQ(buf.value().data(), array.data());
 }
@@ -155,7 +157,8 @@ TEST(BufferView, ConstructFromPointer)
     constexpr std::size_t kSize = 10;
     const std::array<DataT, kSize> array{};
     using Buf = buffer::buffer_view_const<BufDataT>;
-    result<Buf> buf = buffer::make_bv_const(array.data(), array.size());
+    result<Buf> buf =
+        buffer::make_bv_const(array.data(), buffer::NBytes(array.size()));
     ASSERT_EQ(buf.value().size(), kSize);
     ASSERT_EQ(buf.value().data(), array.data());
 }
@@ -211,11 +214,11 @@ TEST(BufferView, ConstructFromInvalidDataAndSize)
             DataPtrT dataPtr = nullptr;
             constexpr std::size_t kSize = 0;
             using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(dataPtr, kSize);
+            result<BufT> buf = buffer::make_bv(dataPtr, buffer::NBytes(kSize));
             return buf.has_error() ? buf.error() : result<int>{0};
         });
 
-    ASSERT_EQ(r, to_underlying(buffer::error::null_data_and_zero_size));
+    ASSERT_EQ(r, to_underlying(buf_error::null_data_and_zero_size));
 }
 
 TEST(BufferView, ConstructFromNullDataPointer)
@@ -228,11 +231,11 @@ TEST(BufferView, ConstructFromNullDataPointer)
             DataPtrT dataPtr = nullptr;
             constexpr std::size_t kSize = 10;
             using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(dataPtr, kSize);
+            result<BufT> buf = buffer::make_bv(dataPtr, buffer::NBytes(kSize));
             return buf.has_error() ? buf.error() : result<int>{0};
         });
 
-    ASSERT_EQ(r, to_underlying(buffer::error::null_data_pointer));
+    ASSERT_EQ(r, to_underlying(buf_error::null_data));
 }
 
 TEST(BufferView, ConstructFromZeroSize)
@@ -244,11 +247,11 @@ TEST(BufferView, ConstructFromZeroSize)
             constexpr std::size_t kSize = 10;
             DataT rawPtr[kSize]{};
             using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(rawPtr, 0);
+            result<BufT> buf = buffer::make_bv(rawPtr, buffer::NBytes(0));
             return buf.has_error() ? buf.error() : result<int>{0};
         });
 
-    ASSERT_EQ(r, to_underlying(buffer::error::zero_size));
+    ASSERT_EQ(r, to_underlying(buf_error::zero_size));
 }
 
 TEST(BufferView, AccessByInvalidIndex)
@@ -263,11 +266,11 @@ TEST(BufferView, AccessByInvalidIndex)
             result<BufT> buf = buffer::make_bv(rawBuf);
             if (buf)
             {
-                auto value = buf.value()[kSize];
+                auto value = buf.value()[buffer::NBytes(kSize)];
                 return value.has_error() ? value.error() : result<int>{};
             }
             return buf.error();
         });
 
-    ASSERT_EQ(r, to_underlying(buffer::error::invalid_index));
+    ASSERT_EQ(r, to_underlying(buf_error::invalid_index));
 }
