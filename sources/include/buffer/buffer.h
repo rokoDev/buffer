@@ -174,6 +174,11 @@ class buffer_view_base
 
     inline constexpr NBytes size() const noexcept { return size_; }
 
+    inline constexpr NBits bitSize() const noexcept
+    {
+        return NBits(size_ * CHAR_BIT);
+    }
+
    private:
     inline constexpr buffer_view_base(pointer aData, NBytes aSize) noexcept
         : data_(aData), size_(aSize)

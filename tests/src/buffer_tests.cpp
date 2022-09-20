@@ -160,6 +160,7 @@ TEST(BufferView, ConstructFromPointer)
     result<Buf> buf =
         buffer::make_bv_const(array.data(), buffer::NBytes(array.size()));
     ASSERT_EQ(buf.value().size(), kSize);
+    ASSERT_EQ(buf.value().bitSize(), kSize * CHAR_BIT);
     ASSERT_EQ(buf.value().data(), array.data());
 }
 
