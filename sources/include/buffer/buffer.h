@@ -33,6 +33,8 @@ template <typename StrongT>
 struct NecessaryOps
     : strong::plus<StrongT>
     , strong::plus_assignment<StrongT>
+    , strong::pre_increment<StrongT>
+    , strong::post_increment<StrongT>
     , strong::convertible_to_bool<StrongT>
     , strong::modulo<StrongT>
     , strong::division<StrongT>
@@ -40,12 +42,66 @@ struct NecessaryOps
     , strong::implicitly_convertible_to_underlying<StrongT>
 {
 };
+
+template <typename StrongT>
+struct bit_pos_special
+{
+    inline constexpr std::size_t byteIndex() const noexcept
+    {
+        return static_cast<const StrongT &>(*this).get() / CHAR_BIT;
+    }
+    inline constexpr uint_fast8_t bitOffset() const noexcept
+    {
+        return static_cast<const StrongT &>(*this).get() % CHAR_BIT;
+    }
+    inline constexpr void reset() noexcept
+    {
+        static_cast<StrongT &>(*this).get() = 0;
+    }
+};
 }  // namespace details
 
-using NBits =
-    strong::strong_type<struct NBitsTag, std::size_t, details::NecessaryOps>;
-using NBytes =
-    strong::strong_type<struct NBytesTag, std::size_t, details::NecessaryOps>;
+using bit_pos =
+    strong::strong_type<struct bit_posTag, std::size_t, details::NecessaryOps,
+                        details::bit_pos_special>;
+
+namespace details
+{
+template <typename StrongT>
+struct nbits_special
+{
+    constexpr operator bit_pos() const noexcept
+    {
+        static_assert(strong::is_strong_v<StrongT>, "Invalid StrongT.");
+        using T = typename StrongT::value_type;
+        const T kNumBits = static_cast<const StrongT &>(*this).get();
+        assert((kNumBits > 0) &&
+               "only positive number of bits can be converted to bit_pos.");
+        return bit_pos(kNumBits - 1);
+    }
+};
+
+template <typename StrongT>
+struct nbytes_special
+{
+    constexpr operator bit_pos() const noexcept
+    {
+        static_assert(strong::is_strong_v<StrongT>, "Invalid StrongT.");
+        using T = typename StrongT::value_type;
+        const T kNumBytes = static_cast<const StrongT &>(*this).get();
+        assert((kNumBytes > 0) &&
+               "only positive number of bytes can be converted to bit_pos.");
+        return bit_pos(kNumBytes * CHAR_BIT - 1);
+    }
+};
+}  // namespace details
+
+using n_bits =
+    strong::strong_type<struct n_bitsTag, std::size_t, details::NecessaryOps,
+                        details::nbits_special>;
+using n_bytes =
+    strong::strong_type<struct n_bytesTag, std::size_t, details::NecessaryOps,
+                        details::nbytes_special>;
 
 namespace details
 {
@@ -96,7 +152,7 @@ inline constexpr bool has_contiguous_storage_v =
     has_contiguous_storage<T>::value;
 
 template <typename T>
-result<void> validate_args(T aData, NBytes aSize) noexcept
+result<void> validate_args(T aData, n_bytes aSize) noexcept
 {
     if (aData && aSize)
     {
@@ -127,7 +183,7 @@ class buffer_view_base
     using value_type = T;
 
     static result<buffer_view_base<T, isConst>> create(pointer aDataPtr,
-                                                       NBytes aSize) noexcept
+                                                       n_bytes aSize) noexcept
     {
         BOOST_LEAF_CHECK(validate_args(aDataPtr, aSize));
         return buffer_view_base<T, isConst>(aDataPtr, aSize);
@@ -142,7 +198,7 @@ class buffer_view_base
         return buffer_view_base<T, true>(data_, size_);
     }
 
-    inline constexpr pointer data_unsafe(NBytes aIndex) const noexcept
+    inline constexpr pointer data_unsafe(n_bytes aIndex) const noexcept
     {
         if constexpr (std::is_same_v<value_type, void>)
         {
@@ -155,7 +211,7 @@ class buffer_view_base
         }
     }
 
-    inline result<pointer> data(NBytes aIndex) const noexcept
+    inline result<pointer> data(n_bytes aIndex) const noexcept
     {
         if (aIndex < size_)
         {
@@ -164,7 +220,7 @@ class buffer_view_base
         return leaf::new_error(error::invalid_index);
     }
 
-    inline result<value_type> operator[](NBytes aIndex) const noexcept
+    inline result<value_type> operator[](n_bytes aIndex) const noexcept
     {
         BOOST_LEAF_AUTO(dataPtr, data(aIndex));
         return *dataPtr;
@@ -172,21 +228,21 @@ class buffer_view_base
 
     inline constexpr pointer data() const noexcept { return data_; }
 
-    inline constexpr NBytes size() const noexcept { return size_; }
+    inline constexpr n_bytes size() const noexcept { return size_; }
 
-    inline constexpr NBits bitSize() const noexcept
+    inline constexpr n_bits bitSize() const noexcept
     {
-        return NBits(size_ * CHAR_BIT);
+        return n_bits(size_ * CHAR_BIT);
     }
 
    private:
-    inline constexpr buffer_view_base(pointer aData, NBytes aSize) noexcept
+    inline constexpr buffer_view_base(pointer aData, n_bytes aSize) noexcept
         : data_(aData), size_(aSize)
     {
     }
 
     pointer data_{};
-    NBytes size_{};
+    n_bytes size_{};
 };
 }  // namespace details
 
@@ -223,7 +279,7 @@ template <typename T>
 inline constexpr bool is_bv_const_v = is_bv_const<T>::value;
 
 template <typename T, typename DataT = std::remove_pointer_t<T>>
-inline result<buffer_view<DataT>> make_bv(T aDataPtr, NBytes aSize) noexcept
+inline result<buffer_view<DataT>> make_bv(T aDataPtr, n_bytes aSize) noexcept
 {
     static_assert(not std::is_const_v<DataT>,
                   "aDataPtr parameter should be pointer to non const data.");
@@ -233,7 +289,7 @@ inline result<buffer_view<DataT>> make_bv(T aDataPtr, NBytes aSize) noexcept
 template <typename T,
           typename DataT = std::remove_const_t<std::remove_pointer_t<T>>>
 inline result<buffer_view_const<DataT>> make_bv_const(T aDataPtr,
-                                                      NBytes aSize) noexcept
+                                                      n_bytes aSize) noexcept
 {
     using PointerT = std::add_pointer_t<std::add_const_t<DataT>>;
     return buffer_view_const<DataT>::create(static_cast<PointerT>(aDataPtr),
@@ -243,13 +299,13 @@ inline result<buffer_view_const<DataT>> make_bv_const(T aDataPtr,
 template <typename T, std::size_t N>
 inline auto make_bv(T (&aData)[N]) noexcept
 {
-    return make_bv(aData, NBytes(N));
+    return make_bv(aData, n_bytes(N));
 }
 
 template <typename T, std::size_t N>
 inline auto make_bv_const(T (&aData)[N]) noexcept
 {
-    return make_bv_const(aData, NBytes(N));
+    return make_bv_const(aData, n_bytes(N));
 }
 
 template <typename T>
@@ -269,7 +325,7 @@ inline auto make_bv(T &&aParam) noexcept
             "aContainer must have contiguous storage.");
         static_assert(not std::is_const_v<T>,
                       "aContainer parameter must be non const.");
-        return make_bv(aParam.data(), NBytes(aParam.size()));
+        return make_bv(aParam.data(), n_bytes(aParam.size()));
     }
 }
 
@@ -288,133 +344,8 @@ inline auto make_bv_const(T &&aParam) noexcept
         static_assert(details::has_contiguous_storage_v<
                           std::remove_cv_t<std::remove_reference_t<T>>>,
                       "aContainer must have contiguous storage.");
-        return make_bv_const(aParam.data(), NBytes(aParam.size()));
+        return make_bv_const(aParam.data(), n_bytes(aParam.size()));
     }
-}
-
-class buf_pos
-{
-   public:
-    ~buf_pos() = default;
-    buf_pos() = default;
-    buf_pos(const buf_pos &) = default;
-    buf_pos &operator=(const buf_pos &) = default;
-    buf_pos(buf_pos &&) noexcept = default;
-    buf_pos &operator=(buf_pos &&) noexcept = default;
-
-    explicit constexpr buf_pos(NBits aNBits) noexcept : bitIndex_(aNBits) {}
-
-    constexpr buf_pos(NBytes aNBytes, NBits aNBits) noexcept
-        : bitIndex_(NBits(aNBytes * CHAR_BIT) + aNBits)
-    {
-    }
-
-    explicit constexpr buf_pos(NBytes aNBytes) noexcept
-        : bitIndex_(aNBytes * CHAR_BIT)
-    {
-    }
-
-    inline constexpr buf_pos &operator=(const NBits &aNBits) noexcept
-    {
-        bitIndex_ = aNBits.get();
-        return *this;
-    }
-
-    inline constexpr buf_pos &operator=(const NBytes &aNBytes) noexcept
-    {
-        bitIndex_ = aNBytes * CHAR_BIT;
-        return *this;
-    }
-
-    inline constexpr std::size_t bitIndex() const noexcept { return bitIndex_; }
-
-    inline constexpr std::size_t byteIndex() const noexcept
-    {
-        return bitIndex_ / CHAR_BIT;
-    }
-
-    inline constexpr uint_fast8_t bitOffset() const noexcept
-    {
-        return bitIndex_ % CHAR_BIT;
-    }
-
-    inline constexpr void reset() noexcept { bitIndex_ = 0; }
-
-   private:
-    std::size_t bitIndex_{};
-};
-inline constexpr buf_pos operator+(const buf_pos &aBufPos,
-                                   const NBits &aNBits) noexcept
-{
-    return buf_pos(NBits(aBufPos.bitIndex() + aNBits.get()));
-}
-
-inline constexpr buf_pos operator+(const NBits &aNBits,
-                                   const buf_pos &aBufPos) noexcept
-{
-    return aBufPos + aNBits;
-}
-
-inline constexpr buf_pos &operator+=(buf_pos &aBufPos,
-                                     const NBits &aNBits) noexcept
-{
-    aBufPos = NBits(aBufPos.bitIndex() + aNBits);
-    return aBufPos;
-}
-
-inline constexpr buf_pos operator+(const buf_pos &aBufPos,
-                                   const NBytes &aNBytes) noexcept
-{
-    return buf_pos(NBits(aBufPos.bitIndex() + aNBytes * CHAR_BIT));
-}
-
-inline constexpr buf_pos operator+(const NBytes &aNBytes,
-                                   const buf_pos &aBufPos) noexcept
-{
-    return aBufPos + aNBytes;
-}
-
-inline constexpr buf_pos &operator+=(buf_pos &aBufPos,
-                                     const NBytes &aNBytes) noexcept
-{
-    aBufPos = NBits(aBufPos.bitIndex() + aNBytes * CHAR_BIT);
-    return aBufPos;
-}
-
-inline constexpr bool operator==(const buf_pos &aLhs,
-                                 const buf_pos &aRhs) noexcept
-{
-    return aLhs.bitIndex() == aRhs.bitIndex();
-}
-
-inline constexpr bool operator!=(const buf_pos &aLhs,
-                                 const buf_pos &aRhs) noexcept
-{
-    return aLhs.bitIndex() != aRhs.bitIndex();
-}
-
-inline constexpr bool operator<(const buf_pos &aLhs,
-                                const buf_pos &aRhs) noexcept
-{
-    return aLhs.bitIndex() < aRhs.bitIndex();
-}
-
-inline constexpr bool operator>(const buf_pos &aLhs,
-                                const buf_pos &aRhs) noexcept
-{
-    return aLhs.bitIndex() > aRhs.bitIndex();
-}
-
-inline constexpr bool operator<=(const buf_pos &aLhs,
-                                 const buf_pos &aRhs) noexcept
-{
-    return aLhs.bitIndex() <= aRhs.bitIndex();
-}
-
-inline constexpr bool operator>=(const buf_pos &aLhs,
-                                 const buf_pos &aRhs) noexcept
-{
-    return aLhs.bitIndex() >= aRhs.bitIndex();
 }
 }  // namespace buffer
 

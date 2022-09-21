@@ -13,6 +13,10 @@ using buf_error = buffer::error;
 template <class T>
 using result = leaf::result<T>;
 
+using Pos = buffer::bit_pos;
+using NBits = buffer::n_bits;
+using NBytes = buffer::n_bytes;
+
 template <typename E>
 constexpr
     typename std::enable_if_t<std::is_enum_v<E>, std::underlying_type_t<E>>
@@ -113,6 +117,43 @@ struct source_location;
 
 #endif
 
+template <typename DataT, std::size_t MaxSize>
+class BufTest : public ::testing::Test
+{
+   public:
+    using Buf = buffer::buffer_view<DataT>;
+    using BufConst = buffer::buffer_view_const<DataT>;
+
+    BufTest() = default;
+    BufTest(const BufTest &) = delete;
+    BufTest &operator=(const BufTest &) = delete;
+    BufTest(BufTest &&) = delete;
+    BufTest &operator=(BufTest &&) = delete;
+
+    Buf make_buf(NBytes aSize) noexcept
+    {
+        assert((aSize <= MaxSize) && "aSize is too big.");
+        auto r = buffer::make_bv(rawBuf_, aSize);
+        assert(r.has_value() && "fatal error while creating buffer.");
+        Buf buf = r.value();
+        return buf;
+    }
+
+    BufConst make_buf_const(NBytes aSize) noexcept
+    {
+        assert((aSize <= MaxSize) && "aSize is too big.");
+        auto r = buffer::make_bv_const(rawBuf_, aSize);
+        assert(r.has_value() && "fatal error while creating buffer.");
+        BufConst buf = r.value();
+        return buf;
+    }
+
+   protected:
+    DataT rawBuf_[MaxSize]{};
+};
+
+using BufMaxLen64 = BufTest<uint8_t, 64>;
+
 TEST(BufferViewConst, ConstructorFromPointer)
 {
     using DataT = char;
@@ -120,9 +161,8 @@ TEST(BufferViewConst, ConstructorFromPointer)
     constexpr std::size_t kSize = 10;
     std::array<DataT, kSize> array{};
     using Buf = buffer::buffer_view_const<BufDataT>;
-    result<Buf> buf =
-        buffer::make_bv_const(array.data(), buffer::NBytes(array.size()));
-    ASSERT_EQ(buf.value().size(), kSize);
+    result<Buf> buf = buffer::make_bv_const(array.data(), NBytes(array.size()));
+    ASSERT_EQ(buf.value().size(), NBytes(kSize));
     ASSERT_EQ(buf.value().data(), array.data());
 }
 
@@ -134,7 +174,7 @@ TEST(BufferViewConst, ConstructFromCArrayTest1)
     const DataT array[kSize]{};
     using Buf = buffer::buffer_view_const<BufDataT>;
     result<Buf> buf = buffer::make_bv_const(array);
-    ASSERT_EQ(buf.value().size(), kSize);
+    ASSERT_EQ(buf.value().size(), NBytes(kSize));
     ASSERT_EQ(buf.value().data(), array);
 }
 
@@ -146,7 +186,7 @@ TEST(BufferViewConst, ConstructFromSTDArrayTest)
     const std::array<DataT, kSize> array{};
     using BufT = buffer::buffer_view_const<BufDataT>;
     result<BufT> buf = buffer::make_bv_const(array);
-    ASSERT_EQ(buf.value().size(), kSize);
+    ASSERT_EQ(buf.value().size(), NBytes(kSize));
     ASSERT_EQ(buf.value().data(), array.data());
 }
 
@@ -157,9 +197,8 @@ TEST(BufferView, ConstructFromPointer)
     constexpr std::size_t kSize = 10;
     const std::array<DataT, kSize> array{};
     using Buf = buffer::buffer_view_const<BufDataT>;
-    result<Buf> buf =
-        buffer::make_bv_const(array.data(), buffer::NBytes(array.size()));
-    ASSERT_EQ(buf.value().size(), kSize);
+    result<Buf> buf = buffer::make_bv_const(array.data(), NBytes(array.size()));
+    ASSERT_EQ(buf.value().size(), NBytes(kSize));
     ASSERT_EQ(buf.value().bitSize(), kSize * CHAR_BIT);
     ASSERT_EQ(buf.value().data(), array.data());
 }
@@ -172,7 +211,7 @@ TEST(BufferView, ConstructFromCArrayTest1)
     DataT array[kSize]{};
     using Buf = buffer::buffer_view<BufDataT>;
     result<Buf> buf = buffer::make_bv(array);
-    ASSERT_EQ(buf.value().size(), kSize);
+    ASSERT_EQ(buf.value().size(), NBytes(kSize));
     ASSERT_EQ(buf.value().data(), array);
 }
 
@@ -184,7 +223,7 @@ TEST(BufferView, ConstructFromSTDArrayTest)
     std::array<DataT, kSize> array{};
     using BufT = buffer::buffer_view<BufDataT>;
     result<BufT> buf = buffer::make_bv(array);
-    ASSERT_EQ(buf.value().size(), kSize);
+    ASSERT_EQ(buf.value().size(), NBytes(kSize));
     ASSERT_EQ(buf.value().data(), array.data());
 }
 
@@ -215,7 +254,7 @@ TEST(BufferView, ConstructFromInvalidDataAndSize)
             DataPtrT dataPtr = nullptr;
             constexpr std::size_t kSize = 0;
             using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(dataPtr, buffer::NBytes(kSize));
+            result<BufT> buf = buffer::make_bv(dataPtr, NBytes(kSize));
             return buf.has_error() ? buf.error() : result<int>{0};
         });
 
@@ -232,7 +271,7 @@ TEST(BufferView, ConstructFromNullDataPointer)
             DataPtrT dataPtr = nullptr;
             constexpr std::size_t kSize = 10;
             using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(dataPtr, buffer::NBytes(kSize));
+            result<BufT> buf = buffer::make_bv(dataPtr, NBytes(kSize));
             return buf.has_error() ? buf.error() : result<int>{0};
         });
 
@@ -248,7 +287,7 @@ TEST(BufferView, ConstructFromZeroSize)
             constexpr std::size_t kSize = 10;
             DataT rawPtr[kSize]{};
             using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(rawPtr, buffer::NBytes(0));
+            result<BufT> buf = buffer::make_bv(rawPtr, NBytes(0));
             return buf.has_error() ? buf.error() : result<int>{0};
         });
 
@@ -267,11 +306,146 @@ TEST(BufferView, AccessByInvalidIndex)
             result<BufT> buf = buffer::make_bv(rawBuf);
             if (buf)
             {
-                auto value = buf.value()[buffer::NBytes(kSize)];
+                auto value = buf.value()[NBytes(kSize)];
                 return value.has_error() ? value.error() : result<int>{};
             }
             return buf.error();
         });
 
     ASSERT_EQ(r, to_underlying(buf_error::invalid_index));
+}
+
+TEST(Comparison, PosPosEQ)
+{
+    constexpr Pos p1(NBits(80));
+    constexpr Pos p2(NBytes(10));
+    static_assert(p1 == p2, "p1 must be equal p2");
+}
+
+TEST(Comparison, PosPosNE)
+{
+    constexpr Pos p1(NBits(10));
+    constexpr Pos p2(NBytes(10));
+    static_assert(p1 != p2, "p1 must not be equal p2");
+}
+
+TEST(Comparison, PosPosLT)
+{
+    constexpr Pos p1(NBits(10));
+    constexpr Pos p2(NBytes(2));
+    static_assert(p1 < p2, "p1 must be less than p2");
+}
+
+TEST(Comparison, PosPosGT)
+{
+    constexpr Pos p1(NBits(10));
+    constexpr Pos p2(NBytes(2));
+    static_assert(p2 > p1, "p2 must be greater than p1");
+}
+
+TEST(Comparison, PosPosLE)
+{
+    constexpr Pos p1(NBits(16));
+    constexpr Pos p2(NBytes(2));
+    static_assert(p1 <= p2, "p1 must be less than or equal to p2");
+}
+
+TEST(Comparison, PosPosGE)
+{
+    constexpr Pos p1(NBits(16));
+    constexpr Pos p2(NBytes(2));
+    static_assert(p1 >= p2, "p1 must be greater than or equal to p2");
+}
+
+TEST(Comparison, PosBufSizeNE)
+{
+    constexpr Pos p1(NBits(10));
+    constexpr Pos p2(NBytes(10));
+    static_assert(p1 != p2, "p1 must not be equal p2");
+}
+
+TEST(Comparison, PosBufSizeLT)
+{
+    constexpr Pos p1(NBits(10));
+    constexpr Pos p2(NBytes(2));
+    static_assert(p1 < p2, "p1 must be less than p2");
+}
+
+TEST(Comparison, PosBufSizeGT)
+{
+    constexpr Pos p1(NBits(10));
+    constexpr Pos p2(NBytes(2));
+    static_assert(p2 > p1, "p2 must be greater than p1");
+}
+
+TEST(Comparison, PosBufSizeLE)
+{
+    constexpr Pos p1(NBits(16));
+    constexpr Pos p2(NBytes(2));
+    static_assert(p1 <= p2, "p1 must be less than or equal to p2");
+}
+
+TEST(Comparison, PosBufSizeGE)
+{
+    constexpr Pos p1(NBits(16));
+    constexpr Pos p2(NBytes(2));
+    static_assert(p1 >= p2, "p1 must be greater than or equal to p2");
+}
+
+TEST(BitPosSpecial, ByteIndex)
+{
+    constexpr Pos p(NBits(10));
+    static_assert(p.byteIndex() == 1, "Invalid byte index.");
+}
+
+TEST(BitPosSpecial, BitOffset)
+{
+    constexpr Pos p(NBits(11));
+    static_assert(p.bitOffset() == 2, "Invalid bit offset.");
+}
+
+TEST(BitPosSpecial, Reset)
+{
+    constexpr Pos zeroPos(0);
+    Pos p(NBits(11));
+    p.reset();
+    ASSERT_EQ(p, zeroPos);
+}
+
+TEST_F(BufMaxLen64, PosBufSizeEQ)
+{
+    constexpr Pos p1(NBits(80));
+    Buf buf = make_buf(NBytes(10));
+
+    ASSERT_EQ(p1, buf.size());
+}
+
+TEST_F(BufMaxLen64, PosBufBitSizeEQ)
+{
+    constexpr Pos p1(NBits(80));
+    Buf buf = make_buf(NBytes(10));
+
+    ASSERT_EQ(p1, buf.bitSize());
+}
+
+TEST_F(BufMaxLen64, PosBufBitSizeEQ2)
+{
+    constexpr Pos p1(15);
+    Buf buf = make_buf(NBytes(2));
+
+    ASSERT_EQ(p1, buf.bitSize());
+}
+
+TEST_F(BufMaxLen64, PosBufSizeLT)
+{
+    constexpr Pos p1(NBits(80));
+    Buf buf = make_buf(NBytes(11));
+    ASSERT_LT(p1, buf.size());
+}
+
+TEST_F(BufMaxLen64, PosBufBitSizeLT)
+{
+    constexpr Pos p1(NBits(80));
+    Buf buf = make_buf(NBytes(11));
+    ASSERT_LT(p1, buf.bitSize());
 }
