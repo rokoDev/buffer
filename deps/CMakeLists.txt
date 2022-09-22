@@ -13,7 +13,7 @@ FetchContent_Declare(
 FetchContent_Declare(
 	strong_type
 	GIT_REPOSITORY https://github.com/rokoDev/strong_type.git
-	GIT_TAG        d086c4313909c5f34a7a6fcf4992fb6dfc570496
+	GIT_TAG        b34f11ad2cbb164030a56a80e488cfd716d43b5d
 )
 
 # If necessary it's possible to use Boost.Leaf from different location instead of downloaded from GitHub
