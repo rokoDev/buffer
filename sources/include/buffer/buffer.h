@@ -32,6 +32,8 @@ template <typename StrongT>
 struct NecessaryOps
     : strong::plus<StrongT>
     , strong::plus_assignment<StrongT>
+    , strong::minus<StrongT>
+    , strong::minus_assignment<StrongT>
     , strong::pre_increment<StrongT>
     , strong::post_increment<StrongT>
     , strong::convertible_to_bool<StrongT>
