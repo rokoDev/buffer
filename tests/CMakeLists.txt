@@ -13,24 +13,18 @@ FetchContent_Declare(
 	  GIT_TAG        c0e032efe587efa99413dd9ac54c3953a7915588
 )
 
-FetchContent_Declare(
-    type_name
-    GIT_REPOSITORY https://github.com/rokoDev/type_name.git
-    GIT_TAG        fe39b753ddad0d034c10b45c2de26f77f180d591
-)
-
 # If necessary it's possible to use type_name from different location instead of downloaded from GitHub
 # string(TOUPPER type_name UP_type_name)
 # set(FETCHCONTENT_SOURCE_DIR_${UP_type_name} ${CMAKE_SOURCE_DIR}/../type_name)
 
-FetchContent_MakeAvailable(googletest type_name)
+FetchContent_MakeAvailable(googletest)
 
 add_library(tests_main STATIC)
 target_sources(tests_main
   PRIVATE
   src/main_tests.cpp
   )
-target_link_libraries(tests_main PUBLIC gtest type_name)
+target_link_libraries(tests_main PUBLIC gtest)
 get_target_property(tests_main_sources tests_main SOURCES)
 source_group(
   TREE   ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -109,4 +103,3 @@ package_add_test(
 
 # If use IDE add gtest, gmock, gtest_main and gmock_main targets into deps/googletest group
 set_target_properties(gtest gmock gtest_main gmock_main PROPERTIES FOLDER deps/googletest)
-set_target_properties(type_name PROPERTIES FOLDER deps)

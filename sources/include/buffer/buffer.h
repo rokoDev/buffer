@@ -23,8 +23,7 @@ enum class error
     null_data = 1,
     zero_size,
     null_data_and_zero_size,
-    invalid_index,
-    unknown
+    invalid_index
 };
 
 namespace details

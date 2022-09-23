@@ -1,8 +1,8 @@
 #include <buffer/buffer.h>
 #include <gtest/gtest.h>
-#include <type_name/type_name.h>
 
 #include <array>
+#include <limits>
 #include <type_traits>
 
 using namespace std::literals::string_view_literals;
@@ -89,7 +89,7 @@ int execute(CallableT &&aArg) noexcept
             std::cerr << "Unknown failure detected" << std::endl
                       << "Cryptic diagnostic information follows" << std::endl
                       << unmatched;
-            return to_underlying(buf_error::unknown);
+            return std::numeric_limits<int>::max();
         });
     return r;
 }
