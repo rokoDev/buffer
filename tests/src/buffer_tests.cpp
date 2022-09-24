@@ -401,7 +401,7 @@ TEST(BitPosSpecial, ByteIndex)
 TEST(BitPosSpecial, BitOffset)
 {
     constexpr Pos p(NBits(11));
-    static_assert(p.bitOffset() == 2, "Invalid bit offset.");
+    static_assert(p.bitOffset() == 3, "Invalid bit offset.");
 }
 
 TEST(BitPosSpecial, Reset)
@@ -417,7 +417,7 @@ TEST_F(BufMaxLen64, PosBufSizeEQ)
     constexpr Pos p1(NBits(80));
     Buf buf = make_buf(NBytes(10));
 
-    ASSERT_EQ(p1, buf.size());
+    ASSERT_EQ(p1, Pos(buf.size()));
 }
 
 TEST_F(BufMaxLen64, PosBufBitSizeEQ)
@@ -433,14 +433,14 @@ TEST_F(BufMaxLen64, PosBufBitSizeEQ2)
     constexpr Pos p1(15);
     Buf buf = make_buf(NBytes(2));
 
-    ASSERT_EQ(p1, buf.bitSize());
+    ASSERT_EQ(p1 + 1, buf.bitSize());
 }
 
 TEST_F(BufMaxLen64, PosBufSizeLT)
 {
     constexpr Pos p1(NBits(80));
     Buf buf = make_buf(NBytes(11));
-    ASSERT_LT(p1, buf.size());
+    ASSERT_LT(p1, Pos(buf.size()));
 }
 
 TEST_F(BufMaxLen64, PosBufBitSizeLT)

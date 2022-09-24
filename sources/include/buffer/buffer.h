@@ -71,28 +71,24 @@ namespace details
 template <typename StrongT>
 struct nbits_special
 {
-    constexpr operator bit_pos() const noexcept
+    explicit constexpr operator bit_pos() const noexcept
     {
         static_assert(strong::is_strong_v<StrongT>, "Invalid StrongT.");
         using T = typename StrongT::value_type;
         const T kNumBits = static_cast<const StrongT &>(*this).get();
-        assert((kNumBits > 0) &&
-               "only positive number of bits can be converted to bit_pos.");
-        return bit_pos(kNumBits - 1);
+        return bit_pos(kNumBits);
     }
 };
 
 template <typename StrongT>
 struct nbytes_special
 {
-    constexpr operator bit_pos() const noexcept
+    explicit constexpr operator bit_pos() const noexcept
     {
         static_assert(strong::is_strong_v<StrongT>, "Invalid StrongT.");
         using T = typename StrongT::value_type;
         const T kNumBytes = static_cast<const StrongT &>(*this).get();
-        assert((kNumBytes > 0) &&
-               "only positive number of bytes can be converted to bit_pos.");
-        return bit_pos(kNumBytes * CHAR_BIT - 1);
+        return bit_pos(kNumBytes * CHAR_BIT);
     }
 };
 }  // namespace details
