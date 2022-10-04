@@ -145,10 +145,6 @@ struct has_contiguous_storage<buffer_view_base<T, isConst>>
 };
 
 template <typename T>
-inline constexpr bool has_contiguous_storage_v =
-    has_contiguous_storage<T>::value;
-
-template <typename T>
 result<void> validate_args(T aData, n_bytes aSize) noexcept
 {
     if (aData && aSize)
@@ -244,6 +240,10 @@ class buffer_view_base
 }  // namespace details
 
 template <typename T>
+inline constexpr bool has_contiguous_storage_v =
+    details::has_contiguous_storage<T>::value;
+
+template <typename T>
 using buffer_view = details::buffer_view_base<T, false>;
 
 template <typename T>
@@ -317,9 +317,8 @@ inline auto make_bv(T &&aParam) noexcept
     {
         static_assert(std::is_lvalue_reference_v<T>,
                       "aContainer's parameter type must be lvalue reference.");
-        static_assert(
-            details::has_contiguous_storage_v<std::remove_reference_t<T>>,
-            "aContainer must have contiguous storage.");
+        static_assert(has_contiguous_storage_v<std::remove_reference_t<T>>,
+                      "aContainer must have contiguous storage.");
         static_assert(not std::is_const_v<T>,
                       "aContainer parameter must be non const.");
         return make_bv(aParam.data(), n_bytes(aParam.size()));
@@ -338,7 +337,7 @@ inline auto make_bv_const(T &&aParam) noexcept
     {
         static_assert(std::is_lvalue_reference_v<T>,
                       "aContainer's parameter type must be lvalue reference.");
-        static_assert(details::has_contiguous_storage_v<
+        static_assert(has_contiguous_storage_v<
                           std::remove_cv_t<std::remove_reference_t<T>>>,
                       "aContainer must have contiguous storage.");
         return make_bv_const(aParam.data(), n_bytes(aParam.size()));
