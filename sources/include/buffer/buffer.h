@@ -55,6 +55,13 @@ struct bit_pos_special
     {
         return static_cast<const StrongT &>(*this).get() % CHAR_BIT;
     }
+    inline constexpr std::size_t bytesUsed() const noexcept
+    {
+        const std::size_t kBytesUsed =
+            byteIndex() + (bitOffset() ? static_cast<std::size_t>(1)
+                                       : static_cast<std::size_t>(0));
+        return kBytesUsed;
+    }
     inline constexpr void reset() noexcept
     {
         static_cast<StrongT &>(*this).get() = 0;

@@ -396,6 +396,7 @@ TEST(BitPosSpecial, ByteIndex)
 {
     constexpr Pos p(NBits(10));
     static_assert(p.byteIndex() == 1, "Invalid byte index.");
+    static_assert(p.bytesUsed() == 2, "bytesUsed returned invalid value.");
 }
 
 TEST(BitPosSpecial, BitOffset)
@@ -418,6 +419,7 @@ TEST_F(BufMaxLen64, PosBufSizeEQ)
     Buf buf = make_buf(NBytes(10));
 
     ASSERT_EQ(p1, Pos(buf.size()));
+    static_assert(p1.bytesUsed() == 10, "bytesUsed returned invalid value.");
 }
 
 TEST_F(BufMaxLen64, PosBufBitSizeEQ)
@@ -434,6 +436,7 @@ TEST_F(BufMaxLen64, PosBufBitSizeEQ2)
     Buf buf = make_buf(NBytes(2));
 
     ASSERT_EQ(p1 + 1, buf.bitSize());
+    static_assert(p1.bytesUsed() == 2, "bytesUsed returned invalid value.");
 }
 
 TEST_F(BufMaxLen64, PosBufSizeLT)
