@@ -173,8 +173,74 @@ result<void> validate_args(T aData, n_bytes aSize) noexcept
 }
 
 template <typename T, bool isConst>
-class buffer_view_base
+class simple_buffer_view_base
 {
+   public:
+    using pointer =
+        std::add_pointer_t<std::conditional_t<isConst, std::add_const_t<T>, T>>;
+    using value_type = T;
+
+    ~simple_buffer_view_base() = default;
+
+    simple_buffer_view_base() noexcept = delete;
+
+    constexpr operator simple_buffer_view_base<T, true>() const noexcept
+    {
+        return simple_buffer_view_base<T, true>(data_, size_);
+    }
+
+    inline constexpr pointer data(n_bytes aIndex) const noexcept
+    {
+        assert(aIndex < size_ && "Invalid aIndex");
+        if constexpr (std::is_same_v<value_type, void>)
+        {
+            using CharPtrT = std::conditional_t<isConst, char const *, char *>;
+            return static_cast<CharPtrT>(data_) + aIndex;
+        }
+        else
+        {
+            return data_ + aIndex;
+        }
+    }
+
+    inline constexpr pointer data() const noexcept { return data_; }
+
+    inline constexpr value_type operator[](n_bytes aIndex) const noexcept
+    {
+        assert(aIndex < size_ && "Invalid aIndex");
+        return *data(aIndex);
+    }
+
+    inline constexpr n_bytes size() const noexcept { return size_; }
+
+    inline constexpr n_bits bit_size() const noexcept
+    {
+        return n_bits(size_ * CHAR_BIT);
+    }
+
+    inline constexpr simple_buffer_view_base(pointer aData,
+                                             n_bytes aSize) noexcept
+        : data_(aData), size_(aSize)
+    {
+        assert(aData && "Invalid aData");
+        assert(aSize && "Invalid aSize");
+    }
+
+    template <std::size_t NBytes>
+    constexpr explicit simple_buffer_view_base(T (&aData)[NBytes]) noexcept
+        : simple_buffer_view_base(aData, n_bytes(NBytes))
+    {
+    }
+
+   protected:
+    pointer data_{};
+    n_bytes size_{};
+};
+
+template <typename T, bool isConst>
+class buffer_view_base : protected simple_buffer_view_base<T, isConst>
+{
+    using base = simple_buffer_view_base<T, isConst>;
     friend buffer_view_base<T, not isConst>;
 
    public:
@@ -193,32 +259,21 @@ class buffer_view_base
 
     buffer_view_base() noexcept = delete;
 
-    constexpr operator buffer_view_base<T, true>() const
+    constexpr operator buffer_view_base<T, true>() const noexcept
     {
-        return buffer_view_base<T, true>(data_, size_);
-    }
-
-    inline constexpr pointer data_unsafe(n_bytes aIndex) const noexcept
-    {
-        if constexpr (std::is_same_v<value_type, void>)
-        {
-            using CharPtrT = std::conditional_t<isConst, char const *, char *>;
-            return static_cast<CharPtrT>(data_) + aIndex;
-        }
-        else
-        {
-            return data_ + aIndex;
-        }
+        return buffer_view_base<T, true>(base::data_, base::size_);
     }
 
     inline result<pointer> data(n_bytes aIndex) const noexcept
     {
-        if (aIndex < size_)
+        if (aIndex < base::size_)
         {
-            return data_unsafe(aIndex);
+            return base::data(aIndex);
         }
         return leaf::new_error(error::invalid_index);
     }
+
+    inline constexpr pointer data() const noexcept { return base::data(); }
 
     inline result<value_type> operator[](n_bytes aIndex) const noexcept
     {
@@ -226,29 +281,56 @@ class buffer_view_base
         return *dataPtr;
     }
 
-    inline constexpr pointer data() const noexcept { return data_; }
+    inline constexpr n_bytes size() const noexcept { return base::size(); }
 
-    inline constexpr n_bytes size() const noexcept { return size_; }
-
-    inline constexpr n_bits bitSize() const noexcept
+    inline constexpr n_bits bit_size() const noexcept
     {
-        return n_bits(size_ * CHAR_BIT);
+        return base::bit_size();
     }
 
    private:
     inline constexpr buffer_view_base(pointer aData, n_bytes aSize) noexcept
-        : data_(aData), size_(aSize)
+        : base(aData, aSize)
     {
     }
-
-    pointer data_{};
-    n_bytes size_{};
 };
 }  // namespace details
 
 template <typename T>
 inline constexpr bool has_contiguous_storage_v =
     details::has_contiguous_storage<T>::value;
+
+template <typename T>
+using simple_buffer_view = details::simple_buffer_view_base<T, false>;
+
+template <typename T>
+using simple_buffer_view_const = details::simple_buffer_view_base<T, true>;
+
+template <typename T>
+struct is_simple_bv : public std::false_type
+{
+};
+
+template <typename T>
+struct is_simple_bv<simple_buffer_view<T>> : public std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool is_simple_bv_v = is_simple_bv<T>::value;
+
+template <typename T>
+struct is_simple_bv_const : public std::false_type
+{
+};
+
+template <typename T>
+struct is_simple_bv_const<simple_buffer_view_const<T>> : public std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool is_simple_bv_const_v = is_simple_bv_const<T>::value;
 
 template <typename T>
 using buffer_view = details::buffer_view_base<T, false>;

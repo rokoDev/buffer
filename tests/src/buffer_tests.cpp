@@ -199,7 +199,7 @@ TEST(BufferView, ConstructFromPointer)
     using Buf = buffer::buffer_view_const<BufDataT>;
     result<Buf> buf = buffer::make_bv_const(array.data(), NBytes(array.size()));
     ASSERT_EQ(buf.value().size(), NBytes(kSize));
-    ASSERT_EQ(buf.value().bitSize(), kSize * CHAR_BIT);
+    ASSERT_EQ(buf.value().bit_size(), kSize * CHAR_BIT);
     ASSERT_EQ(buf.value().data(), array.data());
 }
 
@@ -427,7 +427,7 @@ TEST_F(BufMaxLen64, PosBufBitSizeEQ)
     constexpr Pos p1(NBits(80));
     Buf buf = make_buf(NBytes(10));
 
-    ASSERT_EQ(p1, buf.bitSize());
+    ASSERT_EQ(p1, buf.bit_size());
 }
 
 TEST_F(BufMaxLen64, PosBufBitSizeEQ2)
@@ -435,7 +435,7 @@ TEST_F(BufMaxLen64, PosBufBitSizeEQ2)
     constexpr Pos p1(15);
     Buf buf = make_buf(NBytes(2));
 
-    ASSERT_EQ(p1 + 1, buf.bitSize());
+    ASSERT_EQ(p1 + 1, buf.bit_size());
     static_assert(p1.bytesUsed() == 2, "bytesUsed returned invalid value.");
 }
 
@@ -450,5 +450,5 @@ TEST_F(BufMaxLen64, PosBufBitSizeLT)
 {
     constexpr Pos p1(NBits(80));
     Buf buf = make_buf(NBytes(11));
-    ASSERT_LT(p1, buf.bitSize());
+    ASSERT_LT(p1, buf.bit_size());
 }
