@@ -176,6 +176,8 @@ template <typename T, bool isConst>
 class simple_buffer_view_base
 {
    public:
+    template <std::size_t N>
+    using array_t = std::conditional_t<isConst, std::add_const_t<T>, T> (&)[N];
     using pointer =
         std::add_pointer_t<std::conditional_t<isConst, std::add_const_t<T>, T>>;
     using value_type = T;
@@ -227,7 +229,7 @@ class simple_buffer_view_base
     }
 
     template <std::size_t NBytes>
-    constexpr explicit simple_buffer_view_base(T (&aData)[NBytes]) noexcept
+    constexpr explicit simple_buffer_view_base(array_t<NBytes> aData) noexcept
         : simple_buffer_view_base(aData, n_bytes(NBytes))
     {
     }

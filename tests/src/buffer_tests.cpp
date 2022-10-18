@@ -16,6 +16,8 @@ using result = leaf::result<T>;
 using Pos = buffer::bit_pos;
 using NBits = buffer::n_bits;
 using NBytes = buffer::n_bytes;
+using simple_bv_const = buffer::simple_buffer_view_const<uint8_t>;
+using simple_bv = buffer::simple_buffer_view<uint8_t>;
 
 template <typename E>
 constexpr
@@ -153,6 +155,7 @@ class BufTest : public ::testing::Test
 };
 
 using BufMaxLen64 = BufTest<uint8_t, 64>;
+using SimpleBVConst = BufTest<uint8_t, 64>;
 
 TEST(BufferViewConst, ConstructorFromPointer)
 {
@@ -451,4 +454,28 @@ TEST_F(BufMaxLen64, PosBufBitSizeLT)
     constexpr Pos p1(NBits(80));
     Buf buf = make_buf(NBytes(11));
     ASSERT_LT(p1, buf.bit_size());
+}
+
+TEST(SimpleBVConst, ConstructFromConstArray)
+{
+    constexpr std::size_t kSize = 10;
+    const uint8_t someBuf[kSize]{};
+    simple_bv_const buf(someBuf);
+    ASSERT_EQ(buf.size(), NBytes(kSize));
+}
+
+TEST(SimpleBVConst, ConstructFromArray)
+{
+    constexpr std::size_t kSize = 10;
+    uint8_t someBuf[kSize]{};
+    simple_bv_const buf(someBuf);
+    ASSERT_EQ(buf.size(), NBytes(kSize));
+}
+
+TEST(SimpleBV, ConstructFromArray)
+{
+    constexpr std::size_t kSize = 10;
+    uint8_t someBuf[kSize]{};
+    simple_bv buf(someBuf);
+    ASSERT_EQ(buf.size(), NBytes(kSize));
 }
