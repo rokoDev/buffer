@@ -3,9 +3,6 @@ version: 2.1
 commands:
   clone_branch_or_pr:
     description: "Checkout source code from corresponding pull request or branch. Submodules are not taken into account."
-    parameters:
-      container_name:
-        type: string
     steps:
       - run:
           name: "checkout sources"
@@ -19,19 +16,20 @@ commands:
             fi
             if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" -eq "$PR_NUMBER" ] 2>/dev/null; then
               echo "This is pull request: ${PR_NUMBER}"
-              docker exec -it <<parameters.container_name>> bash -c "git clone ${CLONE_URL} \
-              && cd ${CIRCLE_PROJECT_REPONAME} \
-              && BRANCH=pr${PR_NUMBER} \
-              && git fetch origin \"pull/${PR_NUMBER}/head:${BRANCH}\""
+              git clone ${CLONE_URL}
+              cd ${CIRCLE_PROJECT_REPONAME}
+              BRANCH=pr${PR_NUMBER}
+              git fetch origin \"pull/${PR_NUMBER}/head:${BRANCH}\"
+              cd -
             else
               echo "This is simple branch: ${CIRCLE_BRANCH}"
-              docker exec -it <<parameters.container_name>> bash -c "git clone -b ${CIRCLE_BRANCH} --single-branch ${CLONE_URL}"
+              git clone -b ${CIRCLE_BRANCH} --single-branch ${CLONE_URL}
             fi
 
 jobs:
   ubuntu_x86_64:
     machine:
-      image: ubuntu-2004:202201-01
+      image: ubuntu-2204:2023.10.1
     resource_class: large
     steps:
       - run: printenv
@@ -39,30 +37,45 @@ jobs:
           name: Login to Dockerhub
           command: |
             echo "$DOCKERHUB_PULL_TOKEN" | docker login --username $DOCKERHUB_LOGIN --password-stdin
+      - clone_branch_or_pr
+      - run:
+          name: Create directories for Debug and Release builds
+          command: |
+            mkdir -p build/amd64/Debug
+            mkdir -p build/amd64/Release
+            echo 'export SOURCE_DIR="$CIRCLE_WORKING_DIRECTORY"/"$CIRCLE_PROJECT_REPONAME"' >> "$BASH_ENV"
+            echo 'export BUILD_DIR="$CIRCLE_WORKING_DIRECTORY"/build/amd64' >> "$BASH_ENV"
+      - run:
+          name: Download dockerfiles
+          command: |
+            CLONE_URL="https://github.com/${CIRCLE_PROJECT_USERNAME}/Dockerfiles.git"
+            cd build
+            git clone -b master --single-branch ${CLONE_URL}
+            echo 'export DOCKERFILES_DIR="$CIRCLE_WORKING_DIRECTORY"/build/Dockerfiles' >> "$BASH_ENV"
       - run:
           name: Run docker container for amd64
-          command: docker run -it -d --platform linux/amd64 --name ubuntu_x86 rokodev/ubuntu2004-dev:1.1
-      - clone_branch_or_pr:
-          container_name: ubuntu_x86
+          command: |
+            . $DOCKERFILES_DIR/scripts/set-environment.sh -cc /usr/bin/gcc-12 -cxx /usr/bin/g++-12 -cv 12 -r /usr/bin/ranlib -s $SOURCE_DIR -b $BUILD_DIR -a amd64 -v
+            docker compose -f $DOCKERFILES_DIR/scripts/amd64/compose.yaml up -d
+      - run:
+          name: Mark source directory as safe to get rid of git error while getting hash of last change
+          command: |
+            docker exec -it "build-test-host" bash -c "git config --global --add safe.directory $SOURCE_DIR"
       - run:
           name: Configure, build and test ninja-clang-Debug
           command: |
-            SRC_DIR="/home/projects/${CIRCLE_PROJECT_REPONAME}"
-            BUILD_DIR="${SRC_DIR}/build/Ninja/clang/Debug"
-            docker exec -it ubuntu_x86 bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/clang.cmake -DCMAKE_BUILD_TYPE=\"Debug\" -S $SRC_DIR -B $BUILD_DIR"
-            docker exec -it ubuntu_x86 bash -c "cd $BUILD_DIR; cmake --build . --config Debug"
-            docker exec -it ubuntu_x86 bash -c "cd $BUILD_DIR; ctest -I ,,1 -C Debug --output-on-failure"
+            docker exec -it "build-test-host" bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/Debug/_deps/cmake-toolchains-src/gnu.cmake -DSUPPORTED_CONFIGURATIONS=\"Debug Release\" -DCMAKE_BUILD_TYPE=\"Debug\" -S $SOURCE_DIR -B $BUILD_DIR/Debug"
+            docker exec -it "build-test-host" bash -c "cd $BUILD_DIR/Debug; cmake --build . --config Debug"
+            docker exec -it "build-test-host" bash -c "cd $BUILD_DIR/Debug; ctest -I ,,1 -C Debug --output-on-failure"
       - run:
           name: Configure, build and test ninja-clang-Release
           command: |
-            SRC_DIR="/home/projects/${CIRCLE_PROJECT_REPONAME}"
-            BUILD_DIR="${SRC_DIR}/build/Ninja/clang/Release"
-            docker exec -it ubuntu_x86 bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/clang.cmake -DCMAKE_BUILD_TYPE=\"Release\" -S $SRC_DIR -B $BUILD_DIR"
-            docker exec -it ubuntu_x86 bash -c "cd $BUILD_DIR; cmake --build . --config Release"
-            docker exec -it ubuntu_x86 bash -c "cd $BUILD_DIR; ctest -I ,,1 -C Release --output-on-failure"
+            docker exec -it build-test-host bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/Release/_deps/cmake-toolchains-src/gnu.cmake -DSUPPORTED_CONFIGURATIONS=\"Debug Release\" -DCMAKE_BUILD_TYPE=\"Release\" -S $SOURCE_DIR -B $BUILD_DIR/Release"
+            docker exec -it build-test-host bash -c "cd $BUILD_DIR/Release; cmake --build . --config Release"
+            docker exec -it build-test-host bash -c "cd $BUILD_DIR/Release; ctest -I ,,1 -C Release --output-on-failure"
   ubuntu_s390x:
     machine:
-      image: ubuntu-2004:202201-01
+      image: ubuntu-2204:2023.10.1
     resource_class: large
     environment:
       DOCKER_BUILDKIT: 1
@@ -75,27 +88,44 @@ jobs:
       - run:
           name: Enable run containers with different architectures
           command: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - clone_branch_or_pr
       - run:
-          name: Run docker container for s390x
-          command: docker run -it -d --platform linux/s390x --name ubuntu_z rokodev/ubuntu2204-dev:1.0
-      - clone_branch_or_pr:
-          container_name: ubuntu_z
+          name: Create directories for Debug and Release builds
+          command: |
+            mkdir -p build/s390x/Debug
+            mkdir -p build/s390x/Release
+            echo 'export SOURCE_DIR="$CIRCLE_WORKING_DIRECTORY"/"$CIRCLE_PROJECT_REPONAME"' >> "$BASH_ENV"
+            echo 'export BUILD_DIR="$CIRCLE_WORKING_DIRECTORY"/build/s390x' >> "$BASH_ENV"
+      - run:
+          name: Download dockerfiles
+          command: |
+            CLONE_URL="https://github.com/${CIRCLE_PROJECT_USERNAME}/Dockerfiles.git"
+            cd build
+            git clone -b master --single-branch ${CLONE_URL}
+            echo 'export DOCKERFILES_DIR="$CIRCLE_WORKING_DIRECTORY"/build/Dockerfiles' >> "$BASH_ENV"
+      - run:
+          name: Run docker containers for build and test on s390x architecture
+          command: |
+            . $DOCKERFILES_DIR/scripts/set-environment.sh -s $SOURCE_DIR -b $BUILD_DIR -v
+            docker compose -f $DOCKERFILES_DIR/scripts/s390x/compose.yaml up -d
+      - run:
+          name: Mark source directory as safe to get rid of git error while getting hash of last change
+          command: |
+            docker exec -it build-host bash -c "git config --global --add safe.directory $SOURCE_DIR"
       - run:
           name: Configure, build and test ninja-gnu-Debug
           command: |
-            SRC_DIR="/home/projects/${CIRCLE_PROJECT_REPONAME}"
-            BUILD_DIR="${SRC_DIR}/build/Ninja/gnu/Debug"
-            docker exec -it ubuntu_z bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/gnu.cmake -DCMAKE_BUILD_TYPE=\"Debug\" -S ${SRC_DIR} -B ${BUILD_DIR}"
-            docker exec -it ubuntu_z bash -c "cd $BUILD_DIR; cmake --build . --config Debug"
-            docker exec -it ubuntu_z bash -c "cd $BUILD_DIR; ctest -I ,,1 -C Debug --output-on-failure"
+            docker exec -it build-host bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/Debug/_deps/cmake-toolchains-src/cross-linux-arch.cmake -DSUPPORTED_CONFIGURATIONS=\"Debug Release\" -DCMAKE_BUILD_TYPE=\"Debug\" -S $SOURCE_DIR -B $BUILD_DIR/Debug"
+            docker exec -it build-host bash -c "cd $BUILD_DIR/Debug; cmake --build . --config Debug"
+            cd $BUILD_DIR/Debug
+            ctest --output-on-failure
       - run:
           name: Configure, build and test ninja-gnu-Release
           command: |
-            SRC_DIR="/home/projects/${CIRCLE_PROJECT_REPONAME}"
-            BUILD_DIR="${SRC_DIR}/build/Ninja/gnu/Release"
-            docker exec -it ubuntu_z bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/gnu.cmake -DCMAKE_BUILD_TYPE=\"Release\" -S ${SRC_DIR} -B ${BUILD_DIR}"
-            docker exec -it ubuntu_z bash -c "cd $BUILD_DIR; cmake --build . --config Release"
-            docker exec -it ubuntu_z bash -c "cd $BUILD_DIR; ctest -I ,,1 -C Release --output-on-failure"
+            docker exec -it build-host bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/Release/_deps/cmake-toolchains-src/cross-linux-arch.cmake -DSUPPORTED_CONFIGURATIONS=\"Debug Release\" -DCMAKE_BUILD_TYPE=\"Release\" -S $SOURCE_DIR -B $BUILD_DIR/Release"
+            docker exec -it build-host bash -c "cd $BUILD_DIR/Release; cmake --build . --config Release"
+            cd $BUILD_DIR/Release
+            ctest --output-on-failure
 
 workflows:
   build_and_test:
