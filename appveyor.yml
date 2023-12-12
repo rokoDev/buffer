@@ -72,9 +72,10 @@ before_build:
   - cmake --version
   - C:\Tools\vcpkg\vcpkg.exe integrate remove
   - echo %PATH%
-  - cmake -E make_directory build
-  - cd build
-  - cmake -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE=deps_content/cmake-toolchains/clang-cl.cmake ..
+  - set BUILD_DIR=%APPVEYOR_BUILD_FOLDER%/../build
+  - cmake -E make_directory %BUILD_DIR%
+  - cd %BUILD_DIR%
+  - cmake -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE=%BUILD_DIR%/_deps/cmake-toolchains-src/clang-cl.cmake -S %APPVEYOR_BUILD_FOLDER% -B %BUILD_DIR%
   # - ps: |
   #     clang-cl /?
 
