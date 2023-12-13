@@ -5,8 +5,6 @@ project(${ProjectName})
 
 include(FetchContent)
 
-cmake_path(APPEND FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}" "deps_content" "${CMAKE_GENERATOR_NAME_WITHOUT_SPACES}")
-
 FetchContent_Declare(
     googletest
 	  GIT_REPOSITORY https://github.com/google/googletest.git
@@ -71,10 +69,10 @@ function(package_add_test)
   add_test(NAME ${TEST_TARGET_NAME} COMMAND ${TEST_TARGET_NAME})
 
   # Create groups in the IDE which mirrors directory structure on the hard disk
-  get_target_property(rabbit_tests_src ${TEST_TARGET_NAME} SOURCES)
+  get_target_property(tests_src ${TEST_TARGET_NAME} SOURCES)
   source_group(
     TREE   ${CMAKE_CURRENT_SOURCE_DIR}#/src
-    FILES  ${rabbit_tests_src}
+    FILES  ${tests_src}
   )
 
   # Place all tests targets under "test" source group in IDE
