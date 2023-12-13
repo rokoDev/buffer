@@ -4,7 +4,7 @@ include(FetchContent)
 FetchContent_Declare(
 	boost_leaf
 	GIT_REPOSITORY https://github.com/boostorg/leaf.git
-	GIT_TAG        9d3ffa0f1c859a34da6175b53572fd4f2a61bb18
+	GIT_TAG        d8aae791332a1307ee5a14561a9f7636649e62b9
 )
 
 FetchContent_Declare(
