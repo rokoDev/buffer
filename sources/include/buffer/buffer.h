@@ -41,6 +41,8 @@ struct NecessaryOps
     , strong::division<StrongT>
     , strong::comparisons<StrongT>
     , strong::implicitly_convertible_to_underlying<StrongT>
+    , strong::multiplication_assignment<StrongT>
+    , strong::multiplication<StrongT>
 {
 };
 
