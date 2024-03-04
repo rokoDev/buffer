@@ -219,7 +219,7 @@ class simple_buffer_view_base
 
     inline constexpr n_bits bit_size() const noexcept
     {
-        return n_bits(size_ * CHAR_BIT);
+        return n_bits(size_ * static_cast<std::size_t>(CHAR_BIT));
     }
 
     inline constexpr simple_buffer_view_base(pointer aData,

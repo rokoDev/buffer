@@ -25,6 +25,19 @@ commands:
               echo "This is simple branch: ${CIRCLE_BRANCH}"
               git clone -b ${CIRCLE_BRANCH} --single-branch ${CLONE_URL}
             fi
+  clone_docker_files:
+    description: "Download dockerfiles"
+    steps:
+      - run:
+          name: "checkout Dockerfile repo"
+          command: |
+            CLONE_URL="https://github.com/${CIRCLE_PROJECT_USERNAME}/Dockerfiles.git"
+            cd build
+            git clone -b master --single-branch ${CLONE_URL}
+            cd Dockerfiles
+            git checkout cbc51f708602237b385ba50eff7a742442f53d3d
+            cd ..
+            echo 'export DOCKERFILES_DIR="$CIRCLE_WORKING_DIRECTORY"/build/Dockerfiles' >> "$BASH_ENV"
 
 jobs:
   ubuntu_x86_64:
@@ -45,13 +58,7 @@ jobs:
             mkdir -p build/amd64/Release
             echo 'export SOURCE_DIR="$CIRCLE_WORKING_DIRECTORY"/"$CIRCLE_PROJECT_REPONAME"' >> "$BASH_ENV"
             echo 'export BUILD_DIR="$CIRCLE_WORKING_DIRECTORY"/build/amd64' >> "$BASH_ENV"
-      - run:
-          name: Download dockerfiles
-          command: |
-            CLONE_URL="https://github.com/${CIRCLE_PROJECT_USERNAME}/Dockerfiles.git"
-            cd build
-            git clone -b master --single-branch ${CLONE_URL}
-            echo 'export DOCKERFILES_DIR="$CIRCLE_WORKING_DIRECTORY"/build/Dockerfiles' >> "$BASH_ENV"
+      - clone_docker_files
       - run:
           name: Run docker container for amd64
           command: |
@@ -96,13 +103,7 @@ jobs:
             mkdir -p build/s390x/Release
             echo 'export SOURCE_DIR="$CIRCLE_WORKING_DIRECTORY"/"$CIRCLE_PROJECT_REPONAME"' >> "$BASH_ENV"
             echo 'export BUILD_DIR="$CIRCLE_WORKING_DIRECTORY"/build/s390x' >> "$BASH_ENV"
-      - run:
-          name: Download dockerfiles
-          command: |
-            CLONE_URL="https://github.com/${CIRCLE_PROJECT_USERNAME}/Dockerfiles.git"
-            cd build
-            git clone -b master --single-branch ${CLONE_URL}
-            echo 'export DOCKERFILES_DIR="$CIRCLE_WORKING_DIRECTORY"/build/Dockerfiles' >> "$BASH_ENV"
+      - clone_docker_files
       - run:
           name: Run docker containers for build and test on s390x architecture
           command: |
