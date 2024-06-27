@@ -184,6 +184,35 @@ class simple_buffer_view_base
         std::add_pointer_t<std::conditional_t<isConst, std::add_const_t<T>, T>>;
     using value_type = T;
 
+    class reference final
+    {
+       public:
+        using buffer_type = simple_buffer_view_base<T, isConst>;
+        inline constexpr reference(std::size_t aPos, buffer_type &aBuf) noexcept
+            : pos_(aPos), buf_(&aBuf)
+        {
+        }
+
+        inline constexpr reference &operator=(value_type aValue) noexcept
+        {
+            *buf_->data(pos_) = aValue;
+            return *this;
+        }
+
+        inline constexpr reference &operator=(const reference &aOther) noexcept
+        {
+            *buf_->data(pos_) = value_type(aOther);
+            return *this;
+        }
+
+        operator value_type() const { return *buf_->data(pos_); }
+        operator pointer() const { return buf_->data(pos_); }
+
+       private:
+        const n_bytes pos_{};
+        buffer_type *buf_{};
+    };
+
     ~simple_buffer_view_base() = default;
 
     simple_buffer_view_base() noexcept = delete;
@@ -209,10 +238,10 @@ class simple_buffer_view_base
 
     inline constexpr pointer data() const noexcept { return data_; }
 
-    inline constexpr value_type operator[](n_bytes aIndex) const noexcept
+    inline constexpr reference operator[](n_bytes aIndex) noexcept
     {
         assert(aIndex < size_ && "Invalid aIndex");
-        return *data(aIndex);
+        return {aIndex, *this};
     }
 
     inline constexpr n_bytes size() const noexcept { return size_; }

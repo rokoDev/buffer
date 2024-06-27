@@ -479,3 +479,55 @@ TEST(SimpleBV, ConstructFromArray)
     simple_bv buf(someBuf);
     ASSERT_EQ(buf.size(), NBytes(kSize));
 }
+
+TEST(SimpleBV, AccessViaSquareBrackets)
+{
+    using value_type = simple_bv::value_type;
+    using pointer = simple_bv::pointer;
+
+    constexpr std::size_t kSize = 10;
+    uint8_t someBuf[kSize]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    simple_bv buf(someBuf);
+    for (std::size_t i = 0; i < kSize; ++i)
+    {
+        value_type val = buf[NBytes{i}];
+        ASSERT_EQ(val, i + 1);
+
+        pointer p = buf[NBytes{i}];
+        ASSERT_EQ(p, someBuf + i);
+    }
+}
+
+TEST(SimpleBV, AssignViaSquareBrackets)
+{
+    constexpr std::size_t kSize = 10;
+    uint8_t someBuf[kSize]{};
+    simple_bv buf(someBuf);
+    for (std::size_t i = 0; i < kSize; ++i)
+    {
+        buf[NBytes{i}] = i;
+    }
+
+    for (std::size_t i = 0; i < kSize; ++i)
+    {
+        ASSERT_EQ(buf[NBytes{i}], i);
+    }
+}
+
+TEST(SimpleBV, ConstAccessViaSquareBrackets)
+{
+    using value_type = simple_bv_const::value_type;
+    using pointer = simple_bv_const::pointer;
+
+    constexpr std::size_t kSize = 10;
+    uint8_t someBuf[kSize]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    simple_bv_const buf(someBuf);
+    for (std::size_t i = 0; i < kSize; ++i)
+    {
+        value_type val = buf[NBytes{i}];
+        ASSERT_EQ(val, i + 1);
+
+        pointer p = buf[NBytes{i}];
+        ASSERT_EQ(p, someBuf + i);
+    }
+}
