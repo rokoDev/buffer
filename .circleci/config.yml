@@ -38,6 +38,43 @@ commands:
             git checkout cbc51f708602237b385ba50eff7a742442f53d3d
             cd ..
             echo 'export DOCKERFILES_DIR="$CIRCLE_WORKING_DIRECTORY"/build/Dockerfiles' >> "$BASH_ENV"
+  configure_build_tests_x86_64:
+    description: "runs cmake configure and build and finally run unit tests"
+    parameters:
+      build_type:
+        type: string
+    steps:
+      - run:
+          name: "configure"
+          command: |
+            docker exec -it "build-test-host" bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/<< parameters.build_type >>/_deps/cmake-toolchains-src/gnu.cmake -DCMAKE_BUILD_TYPE=\"<< parameters.build_type >>\" -S $SOURCE_DIR -B $BUILD_DIR/<< parameters.build_type >>"
+      - run:
+          name: "build"
+          command: |
+            docker exec -it "build-test-host" bash -c "cd $BUILD_DIR/<< parameters.build_type >>; cmake --build . --config << parameters.build_type >>"
+      - run:
+          name: "run unit tests"
+          command: |
+            docker exec -it "build-test-host" bash -c "cd $BUILD_DIR/<< parameters.build_type >>; ctest -I ,,1 -C << parameters.build_type >> --output-on-failure"
+  configure_build_tests_s390x:
+    description: "runs cmake configure and build and finally run unit tests"
+    parameters:
+      build_type:
+        type: string
+    steps:
+      - run:
+          name: "configure"
+          command: |
+            docker exec -it build-host bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/<< parameters.build_type >>/_deps/cmake-toolchains-src/cross-linux-arch.cmake -DCMAKE_BUILD_TYPE=\"<< parameters.build_type >>\" -S $SOURCE_DIR -B $BUILD_DIR/<< parameters.build_type >>"
+      - run:
+          name: "build"
+          command: |
+            docker exec -it build-host bash -c "cd $BUILD_DIR/<< parameters.build_type >>; cmake --build . --config << parameters.build_type >>"
+      - run:
+          name: "run unit tests"
+          command: |
+            cd $BUILD_DIR/<< parameters.build_type >>
+            ctest --output-on-failure
 
 jobs:
   ubuntu_x86_64:
@@ -68,18 +105,10 @@ jobs:
           name: Mark source directory as safe to get rid of git error while getting hash of last change
           command: |
             docker exec -it "build-test-host" bash -c "git config --global --add safe.directory $SOURCE_DIR"
-      - run:
-          name: Configure, build and test ninja-clang-Debug
-          command: |
-            docker exec -it "build-test-host" bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/Debug/_deps/cmake-toolchains-src/gnu.cmake -DCMAKE_BUILD_TYPE=\"Debug\" -S $SOURCE_DIR -B $BUILD_DIR/Debug"
-            docker exec -it "build-test-host" bash -c "cd $BUILD_DIR/Debug; cmake --build . --config Debug"
-            docker exec -it "build-test-host" bash -c "cd $BUILD_DIR/Debug; ctest -I ,,1 -C Debug --output-on-failure"
-      - run:
-          name: Configure, build and test ninja-clang-Release
-          command: |
-            docker exec -it build-test-host bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/Release/_deps/cmake-toolchains-src/gnu.cmake -DCMAKE_BUILD_TYPE=\"Release\" -S $SOURCE_DIR -B $BUILD_DIR/Release"
-            docker exec -it build-test-host bash -c "cd $BUILD_DIR/Release; cmake --build . --config Release"
-            docker exec -it build-test-host bash -c "cd $BUILD_DIR/Release; ctest -I ,,1 -C Release --output-on-failure"
+      - configure_build_tests_x86_64:
+          build_type: 'Debug'
+      - configure_build_tests_x86_64:
+          build_type: 'Release'
   ubuntu_s390x:
     machine:
       image: ubuntu-2204:2023.10.1
@@ -113,20 +142,10 @@ jobs:
           name: Mark source directory as safe to get rid of git error while getting hash of last change
           command: |
             docker exec -it build-host bash -c "git config --global --add safe.directory $SOURCE_DIR"
-      - run:
-          name: Configure, build and test ninja-gnu-Debug
-          command: |
-            docker exec -it build-host bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/Debug/_deps/cmake-toolchains-src/cross-linux-arch.cmake -DCMAKE_BUILD_TYPE=\"Debug\" -S $SOURCE_DIR -B $BUILD_DIR/Debug"
-            docker exec -it build-host bash -c "cd $BUILD_DIR/Debug; cmake --build . --config Debug"
-            cd $BUILD_DIR/Debug
-            ctest --output-on-failure
-      - run:
-          name: Configure, build and test ninja-gnu-Release
-          command: |
-            docker exec -it build-host bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/Release/_deps/cmake-toolchains-src/cross-linux-arch.cmake -DCMAKE_BUILD_TYPE=\"Release\" -S $SOURCE_DIR -B $BUILD_DIR/Release"
-            docker exec -it build-host bash -c "cd $BUILD_DIR/Release; cmake --build . --config Release"
-            cd $BUILD_DIR/Release
-            ctest --output-on-failure
+      - configure_build_tests_s390x:
+          build_type: 'Debug'
+      - configure_build_tests_s390x:
+          build_type: 'Release'
 
 workflows:
   build_and_test:
