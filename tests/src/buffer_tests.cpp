@@ -7,17 +7,13 @@
 
 using namespace std::literals::string_view_literals;
 
-namespace leaf = boost::leaf;
 using buf_error = buffer::error;
-
-template <class T>
-using result = leaf::result<T>;
 
 using Pos = buffer::bit_pos;
 using NBits = buffer::n_bits;
 using NBytes = buffer::n_bytes;
-using simple_bv_const = buffer::simple_buffer_view_const<uint8_t>;
-using simple_bv = buffer::simple_buffer_view<uint8_t>;
+using buffer_view_const = buffer::buffer_view_const<uint8_t>;
+using buffer_view = buffer::buffer_view<uint8_t>;
 
 template <typename E>
 constexpr
@@ -71,252 +67,22 @@ constexpr void validateGeneralBufferTypeProperties() noexcept
                   "BufT must have no virtual destructor.");
 }
 
-namespace test_utils
-{
-template <typename CallableT>
-int execute(CallableT &&aArg) noexcept
-{
-    const auto r = leaf::try_handle_all(
-        aArg,
-        [](leaf::match<buf_error, buf_error::null_data_and_zero_size>)
-        { return to_underlying(buf_error::null_data_and_zero_size); },
-        [](leaf::match<buf_error, buf_error::null_data>)
-        { return to_underlying(buf_error::null_data); },
-        [](leaf::match<buf_error, buf_error::zero_size>)
-        { return to_underlying(buf_error::zero_size); },
-        [](leaf::match<buf_error, buf_error::invalid_index>)
-        { return to_underlying(buf_error::invalid_index); },
-        [](leaf::error_info const &unmatched)
-        {
-            std::cerr << "Unknown failure detected" << std::endl
-                      << "Cryptic diagnostic information follows" << std::endl
-                      << unmatched;
-            return std::numeric_limits<int>::max();
-        });
-    return r;
-}
-}  // namespace test_utils
-
-#ifdef BOOST_LEAF_NO_EXCEPTIONS
-
-namespace boost
-{
-[[noreturn]] void throw_exception(std::exception const &e)
-{
-    std::cerr
-        << "Terminating due to a C++ exception under BOOST_LEAF_NO_EXCEPTIONS: "
-        << e.what();
-    std::terminate();
-}
-
-struct source_location;
-[[noreturn]] void throw_exception(std::exception const &e,
-                                  boost::source_location const &)
-{
-    throw_exception(e);
-}
-}  // namespace boost
-
-#endif
-
 template <typename DataT, std::size_t MaxSize>
 class BufTest : public ::testing::Test
 {
    public:
-    using Buf = buffer::buffer_view<DataT>;
-    using BufConst = buffer::buffer_view_const<DataT>;
-
     BufTest() = default;
     BufTest(const BufTest &) = delete;
     BufTest &operator=(const BufTest &) = delete;
     BufTest(BufTest &&) = delete;
     BufTest &operator=(BufTest &&) = delete;
 
-    Buf make_buf(NBytes aSize) noexcept
-    {
-        assert((aSize <= MaxSize) && "aSize is too big.");
-        auto r = buffer::make_bv(rawBuf_, aSize);
-        assert(r.has_value() && "fatal error while creating buffer.");
-        Buf buf = r.value();
-        return buf;
-    }
-
-    BufConst make_buf_const(NBytes aSize) noexcept
-    {
-        assert((aSize <= MaxSize) && "aSize is too big.");
-        auto r = buffer::make_bv_const(rawBuf_, aSize);
-        assert(r.has_value() && "fatal error while creating buffer.");
-        BufConst buf = r.value();
-        return buf;
-    }
-
    protected:
     DataT rawBuf_[MaxSize]{};
 };
 
 using BufMaxLen64 = BufTest<uint8_t, 64>;
-using SimpleBVConst = BufTest<uint8_t, 64>;
-
-TEST(BufferViewConst, ConstructorFromPointer)
-{
-    using DataT = char;
-    using BufDataT = char;
-    constexpr std::size_t kSize = 10;
-    std::array<DataT, kSize> array{};
-    using Buf = buffer::buffer_view_const<BufDataT>;
-    result<Buf> buf = buffer::make_bv_const(array.data(), NBytes(array.size()));
-    ASSERT_EQ(buf.value().size(), NBytes(kSize));
-    ASSERT_EQ(buf.value().data(), array.data());
-}
-
-TEST(BufferViewConst, ConstructFromCArrayTest1)
-{
-    using DataT = unsigned char;
-    using BufDataT = unsigned char;
-    constexpr std::size_t kSize = 10;
-    const DataT array[kSize]{};
-    using Buf = buffer::buffer_view_const<BufDataT>;
-    result<Buf> buf = buffer::make_bv_const(array);
-    ASSERT_EQ(buf.value().size(), NBytes(kSize));
-    ASSERT_EQ(buf.value().data(), array);
-}
-
-TEST(BufferViewConst, ConstructFromSTDArrayTest)
-{
-    using DataT = unsigned char;
-    using BufDataT = unsigned char;
-    constexpr std::size_t kSize = 10;
-    const std::array<DataT, kSize> array{};
-    using BufT = buffer::buffer_view_const<BufDataT>;
-    result<BufT> buf = buffer::make_bv_const(array);
-    ASSERT_EQ(buf.value().size(), NBytes(kSize));
-    ASSERT_EQ(buf.value().data(), array.data());
-}
-
-TEST(BufferView, ConstructFromPointer)
-{
-    using DataT = char;
-    using BufDataT = char;
-    constexpr std::size_t kSize = 10;
-    const std::array<DataT, kSize> array{};
-    using Buf = buffer::buffer_view_const<BufDataT>;
-    result<Buf> buf = buffer::make_bv_const(array.data(), NBytes(array.size()));
-    ASSERT_EQ(buf.value().size(), NBytes(kSize));
-    ASSERT_EQ(buf.value().bit_size(), kSize * CHAR_BIT);
-    ASSERT_EQ(buf.value().data(), array.data());
-}
-
-TEST(BufferView, ConstructFromCArrayTest1)
-{
-    using DataT = unsigned char;
-    using BufDataT = unsigned char;
-    constexpr std::size_t kSize = 10;
-    DataT array[kSize]{};
-    using Buf = buffer::buffer_view<BufDataT>;
-    result<Buf> buf = buffer::make_bv(array);
-    ASSERT_EQ(buf.value().size(), NBytes(kSize));
-    ASSERT_EQ(buf.value().data(), array);
-}
-
-TEST(BufferView, ConstructFromSTDArrayTest)
-{
-    using DataT = unsigned char;
-    using BufDataT = unsigned char;
-    constexpr std::size_t kSize = 10;
-    std::array<DataT, kSize> array{};
-    using BufT = buffer::buffer_view<BufDataT>;
-    result<BufT> buf = buffer::make_bv(array);
-    ASSERT_EQ(buf.value().size(), NBytes(kSize));
-    ASSERT_EQ(buf.value().data(), array.data());
-}
-
-TEST(BufferView, ValidateTypeProperties)
-{
-    using DataT = unsigned char;
-    using BufT = buffer::buffer_view<DataT>;
-    validateGeneralBufferTypeProperties<BufT>();
-}
-
-TEST(BufferViewConst, ValidateTypeProperties)
-{
-    using DataT = unsigned char;
-    using BufT = buffer::buffer_view<DataT>;
-    using ConstBufT = buffer::buffer_view_const<DataT>;
-    validateGeneralBufferTypeProperties<BufT>();
-    static_assert(std::is_convertible_v<BufT, ConstBufT>,
-                  "BufT must be convertible to ConstBufT.");
-}
-
-TEST(BufferView, ConstructFromInvalidDataAndSize)
-{
-    const auto r = test_utils::execute(
-        [&]() -> result<int>
-        {
-            using DataT = unsigned char;
-            using DataPtrT = DataT *;
-            DataPtrT dataPtr = nullptr;
-            constexpr std::size_t kSize = 0;
-            using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(dataPtr, NBytes(kSize));
-            return buf.has_error() ? buf.error() : result<int>{0};
-        });
-
-    ASSERT_EQ(r, to_underlying(buf_error::null_data_and_zero_size));
-}
-
-TEST(BufferView, ConstructFromNullDataPointer)
-{
-    const auto r = test_utils::execute(
-        [&]() -> result<int>
-        {
-            using DataT = unsigned char;
-            using DataPtrT = DataT *;
-            DataPtrT dataPtr = nullptr;
-            constexpr std::size_t kSize = 10;
-            using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(dataPtr, NBytes(kSize));
-            return buf.has_error() ? buf.error() : result<int>{0};
-        });
-
-    ASSERT_EQ(r, to_underlying(buf_error::null_data));
-}
-
-TEST(BufferView, ConstructFromZeroSize)
-{
-    const auto r = test_utils::execute(
-        [&]() -> result<int>
-        {
-            using DataT = unsigned char;
-            constexpr std::size_t kSize = 10;
-            DataT rawPtr[kSize]{};
-            using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(rawPtr, NBytes(0));
-            return buf.has_error() ? buf.error() : result<int>{0};
-        });
-
-    ASSERT_EQ(r, to_underlying(buf_error::zero_size));
-}
-
-TEST(BufferView, AccessByInvalidIndex)
-{
-    const auto r = test_utils::execute(
-        [&]() -> result<int>
-        {
-            using DataT = unsigned char;
-            constexpr std::size_t kSize = 10;
-            DataT rawBuf[kSize]{};
-            using BufT = buffer::buffer_view<DataT>;
-            result<BufT> buf = buffer::make_bv(rawBuf);
-            if (buf)
-            {
-                auto value = buf.value()[NBytes(kSize)];
-                return value.has_error() ? value.error() : result<int>{};
-            }
-            return buf.error();
-        });
-
-    ASSERT_EQ(r, to_underlying(buf_error::invalid_index));
-}
+using BVConst = BufTest<uint8_t, 64>;
 
 TEST(Comparison, PosPosEQ)
 {
@@ -416,78 +182,38 @@ TEST(BitPosSpecial, Reset)
     ASSERT_EQ(p, zeroPos);
 }
 
-TEST_F(BufMaxLen64, PosBufSizeEQ)
-{
-    constexpr Pos p1(NBits(80));
-    Buf buf = make_buf(NBytes(10));
-
-    ASSERT_EQ(p1, Pos(buf.size()));
-    static_assert(p1.bytesUsed() == 10, "bytesUsed returned invalid value.");
-}
-
-TEST_F(BufMaxLen64, PosBufBitSizeEQ)
-{
-    constexpr Pos p1(NBits(80));
-    Buf buf = make_buf(NBytes(10));
-
-    ASSERT_EQ(p1, buf.bit_size());
-}
-
-TEST_F(BufMaxLen64, PosBufBitSizeEQ2)
-{
-    constexpr Pos p1(15);
-    Buf buf = make_buf(NBytes(2));
-
-    ASSERT_EQ(p1 + 1, buf.bit_size());
-    static_assert(p1.bytesUsed() == 2, "bytesUsed returned invalid value.");
-}
-
-TEST_F(BufMaxLen64, PosBufSizeLT)
-{
-    constexpr Pos p1(NBits(80));
-    Buf buf = make_buf(NBytes(11));
-    ASSERT_LT(p1, Pos(buf.size()));
-}
-
-TEST_F(BufMaxLen64, PosBufBitSizeLT)
-{
-    constexpr Pos p1(NBits(80));
-    Buf buf = make_buf(NBytes(11));
-    ASSERT_LT(p1, buf.bit_size());
-}
-
-TEST(SimpleBVConst, ConstructFromConstArray)
+TEST(BVConst, ConstructFromConstArray)
 {
     constexpr std::size_t kSize = 10;
     const uint8_t someBuf[kSize]{};
-    simple_bv_const buf(someBuf);
+    buffer_view_const buf(someBuf);
     ASSERT_EQ(buf.size(), NBytes(kSize));
 }
 
-TEST(SimpleBVConst, ConstructFromArray)
+TEST(BVConst, ConstructFromArray)
 {
     constexpr std::size_t kSize = 10;
     uint8_t someBuf[kSize]{};
-    simple_bv_const buf(someBuf);
+    buffer_view_const buf(someBuf);
     ASSERT_EQ(buf.size(), NBytes(kSize));
 }
 
-TEST(SimpleBV, ConstructFromArray)
+TEST(BV, ConstructFromArray)
 {
     constexpr std::size_t kSize = 10;
     uint8_t someBuf[kSize]{};
-    simple_bv buf(someBuf);
+    buffer_view buf(someBuf);
     ASSERT_EQ(buf.size(), NBytes(kSize));
 }
 
-TEST(SimpleBV, AccessViaSquareBrackets)
+TEST(BV, AccessViaSquareBrackets)
 {
-    using value_type = simple_bv::value_type;
-    using pointer = simple_bv::pointer;
+    using value_type = buffer_view::value_type;
+    using pointer = buffer_view::pointer;
 
     constexpr std::size_t kSize = 10;
     uint8_t someBuf[kSize]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    simple_bv buf(someBuf);
+    buffer_view buf(someBuf);
     for (std::size_t i = 0; i < kSize; ++i)
     {
         value_type val = buf[NBytes{i}];
@@ -498,11 +224,11 @@ TEST(SimpleBV, AccessViaSquareBrackets)
     }
 }
 
-TEST(SimpleBV, AssignViaSquareBrackets)
+TEST(BV, AssignViaSquareBrackets)
 {
     constexpr std::size_t kSize = 10;
     uint8_t someBuf[kSize]{};
-    simple_bv buf(someBuf);
+    buffer_view buf(someBuf);
     for (std::size_t i = 0; i < kSize; ++i)
     {
         buf[NBytes{i}] = i;
@@ -514,14 +240,14 @@ TEST(SimpleBV, AssignViaSquareBrackets)
     }
 }
 
-TEST(SimpleBV, ConstAccessViaSquareBrackets)
+TEST(BV, ConstAccessViaSquareBrackets)
 {
-    using value_type = simple_bv_const::value_type;
-    using pointer = simple_bv_const::pointer;
+    using value_type = buffer_view_const::value_type;
+    using pointer = buffer_view_const::pointer;
 
     constexpr std::size_t kSize = 10;
     uint8_t someBuf[kSize]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-    simple_bv_const buf(someBuf);
+    buffer_view_const buf(someBuf);
     for (std::size_t i = 0; i < kSize; ++i)
     {
         value_type val = buf[NBytes{i}];

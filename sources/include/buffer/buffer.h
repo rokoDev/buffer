@@ -4,7 +4,6 @@
 #include <strong_type/strong_type.h>
 
 #include <array>
-#include <boost/leaf.hpp>
 #include <cstddef>
 #include <string>
 #include <string_view>
@@ -13,11 +12,6 @@
 
 namespace buffer
 {
-namespace leaf = boost::leaf;
-
-template <class T>
-using result = leaf::result<T>;
-
 enum class error
 {
     null_data = 1,
@@ -153,29 +147,8 @@ struct has_contiguous_storage<buffer_view_base<T, isConst>>
 {
 };
 
-template <typename T>
-result<void> validate_args(T aData, n_bytes aSize) noexcept
-{
-    if (aData && aSize)
-    {
-        return {};
-    }
-    if (!aData && !aSize)
-    {
-        return leaf::new_error(error::null_data_and_zero_size);
-    }
-    if (!aData)
-    {
-        return leaf::new_error(error::null_data);
-    }
-    else
-    {
-        return leaf::new_error(error::zero_size);
-    }
-}
-
 template <typename T, bool isConst>
-class simple_buffer_view_base
+class buffer_view_base
 {
    public:
     template <std::size_t N>
@@ -187,7 +160,7 @@ class simple_buffer_view_base
     class reference final
     {
        public:
-        using buffer_type = simple_buffer_view_base<T, isConst>;
+        using buffer_type = buffer_view_base<T, isConst>;
         inline constexpr reference(std::size_t aPos, buffer_type &aBuf) noexcept
             : pos_(aPos), buf_(&aBuf)
         {
@@ -213,13 +186,13 @@ class simple_buffer_view_base
         buffer_type *buf_{};
     };
 
-    ~simple_buffer_view_base() = default;
+    ~buffer_view_base() = default;
 
-    simple_buffer_view_base() noexcept = delete;
+    buffer_view_base() noexcept = delete;
 
-    constexpr operator simple_buffer_view_base<T, true>() const noexcept
+    constexpr operator buffer_view_base<T, true>() const noexcept
     {
-        return simple_buffer_view_base<T, true>(data_, size_);
+        return buffer_view_base<T, true>(data_, size_);
     }
 
     inline constexpr pointer data(n_bytes aIndex) const noexcept
@@ -251,8 +224,7 @@ class simple_buffer_view_base
         return n_bits(size_ * static_cast<std::size_t>(CHAR_BIT));
     }
 
-    inline constexpr simple_buffer_view_base(pointer aData,
-                                             n_bytes aSize) noexcept
+    inline constexpr buffer_view_base(pointer aData, n_bytes aSize) noexcept
         : data_(aData), size_(aSize)
     {
         assert(aData && "Invalid aData");
@@ -260,72 +232,14 @@ class simple_buffer_view_base
     }
 
     template <std::size_t NBytes>
-    constexpr explicit simple_buffer_view_base(array_t<NBytes> aData) noexcept
-        : simple_buffer_view_base(aData, n_bytes(NBytes))
+    constexpr explicit buffer_view_base(array_t<NBytes> aData) noexcept
+        : buffer_view_base(aData, n_bytes(NBytes))
     {
     }
 
    protected:
     pointer data_{};
     n_bytes size_{};
-};
-
-template <typename T, bool isConst>
-class buffer_view_base : protected simple_buffer_view_base<T, isConst>
-{
-    using base = simple_buffer_view_base<T, isConst>;
-    friend buffer_view_base<T, not isConst>;
-
-   public:
-    using pointer =
-        std::add_pointer_t<std::conditional_t<isConst, std::add_const_t<T>, T>>;
-    using value_type = T;
-
-    static result<buffer_view_base<T, isConst>> create(pointer aDataPtr,
-                                                       n_bytes aSize) noexcept
-    {
-        BOOST_LEAF_CHECK(validate_args(aDataPtr, aSize));
-        return buffer_view_base<T, isConst>(aDataPtr, aSize);
-    }
-
-    ~buffer_view_base() = default;
-
-    buffer_view_base() noexcept = delete;
-
-    constexpr operator buffer_view_base<T, true>() const noexcept
-    {
-        return buffer_view_base<T, true>(base::data_, base::size_);
-    }
-
-    inline result<pointer> data(n_bytes aIndex) const noexcept
-    {
-        if (aIndex < base::size_)
-        {
-            return base::data(aIndex);
-        }
-        return leaf::new_error(error::invalid_index);
-    }
-
-    inline constexpr pointer data() const noexcept { return base::data(); }
-
-    inline result<value_type> operator[](n_bytes aIndex) const noexcept
-    {
-        BOOST_LEAF_AUTO(dataPtr, data(aIndex));
-        return *dataPtr;
-    }
-
-    inline constexpr n_bytes size() const noexcept { return base::size(); }
-
-    inline constexpr n_bits bit_size() const noexcept
-    {
-        return base::bit_size();
-    }
-
-   private:
-    inline constexpr buffer_view_base(pointer aData, n_bytes aSize) noexcept
-        : base(aData, aSize)
-    {
-    }
 };
 }  // namespace details
 
@@ -334,137 +248,36 @@ inline constexpr bool has_contiguous_storage_v =
     details::has_contiguous_storage<T>::value;
 
 template <typename T>
-using simple_buffer_view = details::simple_buffer_view_base<T, false>;
-
-template <typename T>
-using simple_buffer_view_const = details::simple_buffer_view_base<T, true>;
-
-template <typename T>
-struct is_simple_bv : public std::false_type
-{
-};
-
-template <typename T>
-struct is_simple_bv<simple_buffer_view<T>> : public std::true_type
-{
-};
-
-template <typename T>
-inline constexpr bool is_simple_bv_v = is_simple_bv<T>::value;
-
-template <typename T>
-struct is_simple_bv_const : public std::false_type
-{
-};
-
-template <typename T>
-struct is_simple_bv_const<simple_buffer_view_const<T>> : public std::true_type
-{
-};
-
-template <typename T>
-inline constexpr bool is_simple_bv_const_v = is_simple_bv_const<T>::value;
-
-template <typename T>
 using buffer_view = details::buffer_view_base<T, false>;
 
 template <typename T>
 using buffer_view_const = details::buffer_view_base<T, true>;
 
 template <typename T>
-struct is_bv : public std::false_type
+struct is_buffer_view : public std::false_type
 {
 };
 
 template <typename T>
-struct is_bv<buffer_view<T>> : public std::true_type
+struct is_buffer_view<buffer_view<T>> : public std::true_type
 {
 };
 
 template <typename T>
-inline constexpr bool is_bv_v = is_bv<T>::value;
+inline constexpr bool is_buffer_view_v = is_buffer_view<T>::value;
 
 template <typename T>
-struct is_bv_const : public std::false_type
+struct is_buffer_view_const : public std::false_type
 {
 };
 
 template <typename T>
-struct is_bv_const<buffer_view_const<T>> : public std::true_type
+struct is_buffer_view_const<buffer_view_const<T>> : public std::true_type
 {
 };
 
 template <typename T>
-inline constexpr bool is_bv_const_v = is_bv_const<T>::value;
-
-template <typename T, typename DataT = std::remove_pointer_t<T>>
-inline result<buffer_view<DataT>> make_bv(T aDataPtr, n_bytes aSize) noexcept
-{
-    static_assert(not std::is_const_v<DataT>,
-                  "aDataPtr parameter should be pointer to non const data.");
-    return buffer_view<DataT>::create(aDataPtr, aSize);
-}
-
-template <typename T,
-          typename DataT = std::remove_const_t<std::remove_pointer_t<T>>>
-inline result<buffer_view_const<DataT>> make_bv_const(T aDataPtr,
-                                                      n_bytes aSize) noexcept
-{
-    using PointerT = std::add_pointer_t<std::add_const_t<DataT>>;
-    return buffer_view_const<DataT>::create(static_cast<PointerT>(aDataPtr),
-                                            aSize);
-}
-
-template <typename T, std::size_t N>
-inline auto make_bv(T (&aData)[N]) noexcept
-{
-    return make_bv(aData, n_bytes(N));
-}
-
-template <typename T, std::size_t N>
-inline auto make_bv_const(T (&aData)[N]) noexcept
-{
-    return make_bv_const(aData, n_bytes(N));
-}
-
-template <typename T>
-inline auto make_bv(T &&aParam) noexcept
-{
-    using U = std::remove_cv_t<std::remove_reference_t<T>>;
-    if constexpr (is_bv_v<U>)
-    {
-        return make_bv(aParam.data(), aParam.size());
-    }
-    else
-    {
-        static_assert(std::is_lvalue_reference_v<T>,
-                      "aContainer's parameter type must be lvalue reference.");
-        static_assert(has_contiguous_storage_v<std::remove_reference_t<T>>,
-                      "aContainer must have contiguous storage.");
-        static_assert(not std::is_const_v<T>,
-                      "aContainer parameter must be non const.");
-        return make_bv(aParam.data(), n_bytes(aParam.size()));
-    }
-}
-
-template <typename T>
-inline auto make_bv_const(T &&aParam) noexcept
-{
-    using U = std::remove_cv_t<std::remove_reference_t<T>>;
-    if constexpr (is_bv_v<U> || is_bv_const_v<U>)
-    {
-        return make_bv_const(aParam.data(), aParam.size());
-    }
-    else
-    {
-        static_assert(std::is_lvalue_reference_v<T>,
-                      "aContainer's parameter type must be lvalue reference.");
-        static_assert(has_contiguous_storage_v<
-                          std::remove_cv_t<std::remove_reference_t<T>>>,
-                      "aContainer must have contiguous storage.");
-        return make_bv_const(aParam.data(), n_bytes(aParam.size()));
-    }
-}
+inline constexpr bool is_buffer_view_const_v = is_buffer_view_const<T>::value;
 }  // namespace buffer
 
 #endif /* buffer_h */
