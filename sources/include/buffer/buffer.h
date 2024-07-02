@@ -4,6 +4,7 @@
 #include <strong_type/strong_type.h>
 
 #include <array>
+#include <climits>
 #include <cstddef>
 #include <string>
 #include <string_view>
@@ -105,48 +106,6 @@ using n_bytes =
 
 namespace details
 {
-template <typename T>
-struct has_contiguous_storage : public std::false_type
-{
-};
-
-template <typename T>
-struct has_contiguous_storage<std::vector<T>> : public std::true_type
-{
-};
-
-template <>
-struct has_contiguous_storage<std::vector<bool>> : public std::false_type
-{
-};
-
-template <typename T, std::size_t N>
-struct has_contiguous_storage<std::array<T, N>> : public std::true_type
-{
-};
-
-template <typename T>
-struct has_contiguous_storage<
-    std::basic_string<T, std::char_traits<T>, std::allocator<T>>>
-    : public std::true_type
-{
-};
-
-template <typename T>
-struct has_contiguous_storage<std::basic_string_view<T, std::char_traits<T>>>
-    : public std::true_type
-{
-};
-
-template <typename T, bool isConst>
-class buffer_view_base;
-
-template <typename T, bool isConst>
-struct has_contiguous_storage<buffer_view_base<T, isConst>>
-    : public std::true_type
-{
-};
-
 template <typename T, bool isConst>
 class buffer_view_base
 {
@@ -242,10 +201,6 @@ class buffer_view_base
     n_bytes size_{};
 };
 }  // namespace details
-
-template <typename T>
-inline constexpr bool has_contiguous_storage_v =
-    details::has_contiguous_storage<T>::value;
 
 template <typename T>
 using buffer_view = details::buffer_view_base<T, false>;
