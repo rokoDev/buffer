@@ -8,7 +8,7 @@ include(FetchContent)
 FetchContent_Declare(
     cmake-toolchains
     GIT_REPOSITORY https://github.com/rokoDev/cmake-toolchains.git
-    GIT_TAG        b7570c00c0967ca80266cabcfa6a23d2e98d891f
+    GIT_TAG        baec2846aef97138ef9d693ee7162d23098aed73
 )
 
 FetchContent_MakeAvailable(cmake-toolchains)
