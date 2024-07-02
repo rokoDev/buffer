@@ -4,6 +4,7 @@
 #include <strong_type/strong_type.h>
 
 #include <array>
+#include <cassert>
 #include <climits>
 #include <cstddef>
 #include <string>
