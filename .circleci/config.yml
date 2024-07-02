@@ -45,15 +45,15 @@ commands:
         type: string
     steps:
       - run:
-          name: "configure"
+          name: "configure << parameters.build_type >>"
           command: |
             docker exec -it "build-test-host" bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/<< parameters.build_type >>/_deps/cmake-toolchains-src/gnu.cmake -DCMAKE_BUILD_TYPE=\"<< parameters.build_type >>\" -S $SOURCE_DIR -B $BUILD_DIR/<< parameters.build_type >>"
       - run:
-          name: "build"
+          name: "build << parameters.build_type >>"
           command: |
             docker exec -it "build-test-host" bash -c "cd $BUILD_DIR/<< parameters.build_type >>; cmake --build . --config << parameters.build_type >>"
       - run:
-          name: "run unit tests"
+          name: "run unit tests << parameters.build_type >>"
           command: |
             docker exec -it "build-test-host" bash -c "cd $BUILD_DIR/<< parameters.build_type >>; ctest -I ,,1 -C << parameters.build_type >> --output-on-failure"
   configure_build_tests_s390x:
@@ -63,15 +63,15 @@ commands:
         type: string
     steps:
       - run:
-          name: "configure"
+          name: "configure << parameters.build_type >>"
           command: |
             docker exec -it build-host bash -c "cmake -GNinja -DCMAKE_TOOLCHAIN_FILE=$BUILD_DIR/<< parameters.build_type >>/_deps/cmake-toolchains-src/cross-linux-arch.cmake -DCMAKE_BUILD_TYPE=\"<< parameters.build_type >>\" -S $SOURCE_DIR -B $BUILD_DIR/<< parameters.build_type >>"
       - run:
-          name: "build"
+          name: "build << parameters.build_type >>"
           command: |
             docker exec -it build-host bash -c "cd $BUILD_DIR/<< parameters.build_type >>; cmake --build . --config << parameters.build_type >>"
       - run:
-          name: "run unit tests"
+          name: "run unit tests << parameters.build_type >>"
           command: |
             cd $BUILD_DIR/<< parameters.build_type >>
             ctest --output-on-failure
